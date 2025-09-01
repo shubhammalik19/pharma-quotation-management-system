@@ -1,0 +1,6 @@
+# Upload Directory
+
+This directory is used for file uploads. The `.gitkeep` file ensures this directory structure is maintained in version control while the actual uploaded files are ignored.
+
+## Security Note
+Ensure proper file validation and security measures are in place for all file uploads.

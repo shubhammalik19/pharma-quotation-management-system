@@ -1,0 +1,102 @@
+# PHP
+*.log
+*.tmp
+*.cache
+
+# Database
+*.sql.gz
+*.sql.bak
+backup_*.sql
+
+# Environment & Configuration
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+config.local.php
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Composer
+vendor/
+composer.phar
+composer.lock
+
+# Node modules (if any)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Upload directories
+uploads/*
+!uploads/.gitkeep
+common/temp/*
+!common/temp/.gitkeep
+
+# Generated files
+docs/generated/
+*.pdf
+*.xlsx
+*.csv
+
+# Cache directories
+cache/
+tmp/
+temp/
+
+# Error logs
+error_log
+error.log
+debug.log
+
+# System files
+.htaccess.bak
+.htpasswd
+
+# Backup files
+*.bak
+*.backup
+*_backup
+backup_*
+
+# Security sensitive files
+*.key
+*.pem
+*.crt
+private_key.txt
+secret.txt
+
+# OS generated files
+.DS_Store?
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Development tools
+.phpunit.result.cache
+phpunit.xml
+.coverage/
+
+# Local environment files
+local_config.php
+development.ini
+
+# Email attachments and temporary files
+attachments/
+email_temp/
