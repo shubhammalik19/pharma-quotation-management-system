@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Sep 04, 2025 at 01:37 AM
+-- Generation Time: Sep 04, 2025 at 12:13 PM
 -- Server version: 10.11.11-MariaDB
 -- PHP Version: 8.2.29
 
@@ -187,11 +187,63 @@ CREATE TABLE `machines` (
 --
 
 INSERT INTO `machines` (`id`, `name`, `model`, `category`, `description`, `tech_specs`, `attachment_filename`, `attachment_path`, `attachment_size`, `attachment_type`, `part_code`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'Rapid Mixer Granulator', 'RMG-500', 'Granulation Equipment', 'High-speed granulation equipment for pharmaceutical industry', 'Three-blade impeller, four-blade chopper, pneumatic top lid &amp;amp;amp;amp;amp;amp;amp; discharge, safety proxies, slow/fast speed, contact parts SS316, non-contact SS304, VFD for impeller &amp;amp;amp;amp;amp;amp;amp; chopper, manual push-button panel, amp meters, air purging housings. Capacity: 500 kg batch', 'RMG-500_Technical_Specification.pdf', 'uploads/machines/rmg_500_specs.pdf', 776, 'application/pdf', 'RMG500', 1, '2025-08-28 12:31:21', '2025-09-04 01:28:19'),
+(1, 'Rapid Mixer Granulator', 'RMG-500', 'Granulation Equipment', 'High-speed granulation equipment for pharmaceutical industry', 'Three-blade impeller, four-blade chopper, pneumatic top lid &amp;amp;amp;amp;amp;amp;amp;amp;amp; discharge, safety proxies, slow/fast speed, contact parts SS316, non-contact SS304, VFD for impeller &amp;amp;amp;amp;amp;amp;amp;amp;amp; chopper, manual push-button panel, amp meters, air purging housings. Capacity: 500 kg batch', 'RMG-500_Technical_Specification.pdf', 'uploads/machines/rmg_500_specs.pdf', 776, 'application/pdf', 'RMG500', 1, '2025-08-28 12:31:21', '2025-09-04 10:10:48'),
 (2, 'Fluid Bed Processor (Top Spray)', 'FBD-500', 'Drying Equipment', 'Fluid bed dryer with top spray coating capability', 'Single piece construction, 2× product containers with trolleys, safe earth mechanism, auto bag up/down &amp; shaking, sampling port, SS316 contact / SS304 non-contact, double-skin AHU with pre+micro filters &amp; steam coil. Operating capacity: 300-400 kg', NULL, NULL, NULL, NULL, 'FBD500', 1, '2025-08-28 12:31:21', '2025-09-03 17:21:19'),
 (3, 'Octagonal Blender', 'OCT-2000L', 'Blending Equipment', 'Octagonal blender for homogeneous mixing', 'SS316 contact / SS304 non-contact, internal mirror, external matt. Working volume ~1500 L (~750 kg @ BD 0.5), VFD-driven, 5-12 RPM, 10 HP motor, safety railing. Charging/discharge ports in SS316, 12″ butterfly valve', 'OCT-2000L_Technical_Specification.pdf', 'uploads/machines/oct_2000l_specs.pdf', 824, 'application/pdf', 'OCT2000', 1, '2025-08-28 12:31:21', '2025-09-03 15:03:34'),
 (4, 'Vibro Sifter', 'VS-48', 'Sieving Equipment', '48 inch vibro sifter for particle separation', 'GMP design, smooth 180-grit external, 180+ internal finish, food-grade gaskets. Center-flange vibro motor (approx. 2 HP), 12 springs, nylon castors, silicon-moulded screen. Dimensions: Ø1220 mm', NULL, NULL, NULL, NULL, 'VS48', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(5, 'Colloid Mill', 'CM-500', 'Size Reduction', 'Colloid mill for particle size reduction', 'SS316 contact / SS304 non-contact, conical stator/rotor with fine gap adjustment, water-jacketed hopper. Vertical belt-driven rotor, 5 HP @ 2880 RPM, outputs ~150–1000 L/h, hopper ~15 L', NULL, NULL, NULL, NULL, 'CM500', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21');
+(5, 'Colloid Mill', 'CM-500', 'Size Reduction', 'Colloid mill for particle size reduction', 'SS316 contact / SS304 non-contact, conical stator/rotor with fine gap adjustment, water-jacketed hopper. Vertical belt-driven rotor, 5 HP @ 2880 RPM, outputs ~150–1000 L/h, hopper ~15 L', NULL, NULL, NULL, NULL, 'CM500', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
+(12, 'ASDASDDSA', 'asdasdasdadsads', 'mac', 'asdasd', '', NULL, NULL, NULL, NULL, 'asdasd', 1, '2025-09-04 10:12:28', '2025-09-04 10:21:00');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `machine_features`
+--
+
+CREATE TABLE `machine_features` (
+  `id` int(11) NOT NULL,
+  `machine_id` int(11) NOT NULL,
+  `feature_name` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `machine_features`
+--
+
+INSERT INTO `machine_features` (`id`, `machine_id`, `feature_name`, `created_at`, `updated_at`) VALUES
+(2, 12, 'shubhan', '2025-09-04 10:12:46', '2025-09-04 10:12:46'),
+(3, 12, 'MACHIN', '2025-09-04 10:20:55', '2025-09-04 10:20:55'),
+(4, 5, 'MACHI_CA', '2025-09-04 11:18:25', '2025-09-04 11:18:25');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `machine_feature_prices`
+--
+
+CREATE TABLE `machine_feature_prices` (
+  `id` int(11) NOT NULL,
+  `machine_id` int(11) NOT NULL,
+  `feature_name` varchar(255) NOT NULL,
+  `price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `valid_from` date NOT NULL,
+  `valid_to` date NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `price_master_id` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `machine_feature_prices`
+--
+
+INSERT INTO `machine_feature_prices` (`id`, `machine_id`, `feature_name`, `price`, `valid_from`, `valid_to`, `is_active`, `created_at`, `updated_at`, `price_master_id`) VALUES
+(7, 5, 'MACHI_CA', 100.00, '2025-08-28', '2026-08-28', 1, '2025-09-04 11:32:19', '2025-09-04 11:32:19', 7),
+(10, 12, 'MACHIN', 5205.00, '2025-09-04', '2026-09-04', 1, '2025-09-04 12:11:38', '2025-09-04 12:11:38', 11),
+(11, 12, 'shubhan', 45440.00, '2025-09-04', '2026-09-04', 1, '2025-09-04 12:11:38', '2025-09-04 12:11:38', 11);
 
 -- --------------------------------------------------------
 
@@ -375,7 +427,8 @@ INSERT INTO `price_master` (`id`, `machine_id`, `price`, `valid_from`, `valid_to
 (3, 3, 890000.00, '2025-01-01', '2025-12-31', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (4, 4, 215000.00, '2025-01-01', '2025-12-31', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (5, 5, 365000.00, '2025-01-01', '2025-12-31', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(7, 5, 1000000.00, '2025-08-28', '2026-08-28', 1, '2025-08-28 17:02:58', '2025-08-28 17:02:58');
+(7, 5, 1000000.00, '2025-08-28', '2026-08-28', 1, '2025-08-28 17:02:58', '2025-08-28 17:02:58'),
+(11, 12, 1000.00, '2025-09-04', '2026-09-04', 1, '2025-09-04 11:32:31', '2025-09-04 11:32:31');
 
 -- --------------------------------------------------------
 
@@ -409,8 +462,7 @@ CREATE TABLE `purchase_invoices` (
 --
 
 INSERT INTO `purchase_invoices` (`id`, `pi_number`, `vendor_id`, `vendor_name`, `purchase_order_id`, `purchase_order_number`, `hsn_code`, `pi_date`, `due_date`, `status`, `notes`, `total_amount`, `discount_percentage`, `discount_amount`, `final_total`, `created_by`, `created_at`, `updated_at`) VALUES
-(1, 'PI-2025-00001', 6, 'ABC Chemical Suppliers Pvt Ltd', 2, NULL, NULL, '2025-09-03', '2025-10-03', 'draft', '', 3021000.00, 0.00, 0.00, 3021000.00, 1, '2025-09-03 16:18:40', '2025-09-03 16:18:40'),
-(2, 'PI-2025-00002', 2, 'ABC Pharmaceuticals Ltd', NULL, NULL, NULL, '2025-09-03', '2025-10-03', 'draft', '', 1000000.00, 0.00, 0.00, 1000000.00, 1, '2025-09-03 16:33:43', '2025-09-03 16:33:43');
+(3, 'PI-2025-00001', 2, 'ABC Pharmaceuticals Ltd', NULL, NULL, NULL, '2025-09-04', '2025-10-04', 'draft', '', 412000.00, 0.00, 0.00, 412000.00, 1, '2025-09-04 11:38:36', '2025-09-04 11:38:36');
 
 -- --------------------------------------------------------
 
@@ -439,9 +491,9 @@ CREATE TABLE `purchase_invoice_items` (
 --
 
 INSERT INTO `purchase_invoice_items` (`id`, `pi_id`, `item_type`, `item_id`, `item_name`, `description`, `hsn_code`, `quantity`, `unit_price`, `total_price`, `machine_id`, `created_at`, `updated_at`) VALUES
-(1, 1, 'machine', 2, 'Fluid Bed Processor (Top Spray)', '', NULL, 1, 3020000.00, 3020000.00, NULL, '2025-09-03 16:18:40', '2025-09-03 16:18:40'),
-(2, 1, 'spare', 11, 'asddsa', '', NULL, 1, 1000.00, 1000.00, 2, '2025-09-03 16:18:40', '2025-09-03 16:18:40'),
-(3, 2, 'machine', 5, 'Colloid Mill', '', NULL, 1, 1000000.00, 1000000.00, NULL, '2025-09-03 16:33:43', '2025-09-03 16:33:43');
+(7, 3, 'machine', 5, 'Colloid Mill', '', NULL, 1, 365000.00, 365000.00, 0, '2025-09-04 12:11:27', '2025-09-04 12:11:27'),
+(8, 3, 'spare', 3, 'Sealing Roller', 'Heat sealing roller for blister packing', NULL, 1, 12000.00, 12000.00, 5, '2025-09-04 12:11:27', '2025-09-04 12:11:27'),
+(9, 3, 'spare', 8, 'Stator Rotor Set', 'Stator rotor assembly for colloid mill', NULL, 1, 35000.00, 35000.00, 5, '2025-09-04 12:11:27', '2025-09-04 12:11:27');
 
 -- --------------------------------------------------------
 
@@ -544,7 +596,8 @@ CREATE TABLE `quotations` (
 INSERT INTO `quotations` (`id`, `prefix`, `max_no`, `quotation_number`, `customer_id`, `quotation_date`, `valid_until`, `total_amount`, `discount_percentage`, `discount_amount`, `tax_amount`, `grand_total`, `status`, `enquiry_ref`, `revision_no`, `prepared_by`, `notes`, `created_at`, `updated_at`) VALUES
 (3, 'QUO-', 1, 'QUO-2025-00001', 6, '2025-09-01', '2025-10-01', 890000.00, 0.00, 0.00, 0.00, 890000.00, 'pending', '100', 1, 'Sales Department', '', '2025-09-01 06:29:02', '2025-09-01 06:29:02'),
 (4, 'QUO-', 2, 'QUO-2025-00002', 2, '2025-09-03', '2025-10-03', 890000.00, 0.00, 0.00, 0.00, 890000.00, 'pending', 'asdasd', 1, 'Sales Department', '', '2025-09-03 17:39:56', '2025-09-03 17:39:56'),
-(5, 'QUO-', 3, 'QUO-2025-00003', 6, '2025-09-04', '2025-10-04', 2772000.00, 0.00, 0.00, 0.00, 2772000.00, 'pending', '', 1, 'Sales Department', '', '2025-09-04 01:10:45', '2025-09-04 01:10:45');
+(5, 'QUO-', 3, 'QUO-2025-00003', 6, '2025-09-04', '2025-10-04', 1000.00, 0.00, 0.00, 0.00, 1000.00, 'pending', '', 1, 'Sales Department', '', '2025-09-04 01:10:45', '2025-09-04 11:44:41'),
+(7, 'QUO-', 4, 'QUO-2025-00004', 6, '2025-09-04', '2025-10-04', 6205.00, 0.00, 0.00, 0.00, 6205.00, 'pending', 'asdasd', 1, 'Sales Department', '', '2025-09-04 11:49:13', '2025-09-04 12:11:33');
 
 -- --------------------------------------------------------
 
@@ -574,7 +627,33 @@ CREATE TABLE `quotation_items` (
 INSERT INTO `quotation_items` (`id`, `quotation_id`, `item_type`, `item_id`, `quantity`, `unit_price`, `total_price`, `sl_no`, `description`, `specifications`, `created_at`, `updated_at`) VALUES
 (3, 3, 'machine', 3, 1, 890000.00, 890000.00, 1, 'Octagonal Blender - Machine', '', '2025-09-01 06:29:02', '2025-09-01 06:29:02'),
 (5, 4, 'machine', 3, 1, 890000.00, 890000.00, 1, 'Octagonal Blender - Machine', '', '2025-09-03 17:41:11', '2025-09-03 17:41:11'),
-(8, 5, 'machine', 1, 1, 2772000.00, 2772000.00, 1, 'Rapid Mixer Granulator - Machine', '', '2025-09-04 01:32:07', '2025-09-04 01:32:07');
+(11, 5, 'machine', 12, 1, 1000.00, 1000.00, 1, 'ASDASDDSA - Machine', '', '2025-09-04 11:48:43', '2025-09-04 11:48:43'),
+(14, 7, 'machine', 12, 1, 1000.00, 1000.00, 1, 'ASDASDDSA - Machine', '', '2025-09-04 12:11:33', '2025-09-04 12:11:33');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `quotation_machine_features`
+--
+
+CREATE TABLE `quotation_machine_features` (
+  `id` int(11) NOT NULL,
+  `quotation_item_id` int(11) NOT NULL,
+  `feature_name` varchar(255) NOT NULL,
+  `price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `total_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `quotation_machine_features`
+--
+
+INSERT INTO `quotation_machine_features` (`id`, `quotation_item_id`, `feature_name`, `price`, `quantity`, `total_price`, `created_at`, `updated_at`) VALUES
+(2, 11, 'MACHIN', 5205.00, 1, 5205.00, '2025-09-04 11:48:43', '2025-09-04 11:48:43'),
+(5, 14, 'MACHIN', 5205.00, 1, 5205.00, '2025-09-04 12:11:33', '2025-09-04 12:11:33');
 
 -- --------------------------------------------------------
 
@@ -1334,13 +1413,32 @@ CREATE TABLE `spares` (
 --
 
 INSERT INTO `spares` (`id`, `part_name`, `part_code`, `description`, `price`, `machine_id`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'Punch &amp;amp;amp;amp;amp; Die Set - 8mm Round', 'PD-8MM', '', 0.00, NULL, 1, '2025-08-28 12:31:21', '2025-09-04 01:31:45'),
+(1, 'Punch &amp;amp;amp;amp;amp;amp; Die Set - 8mm Round', 'PD-8MM', '', 0.00, NULL, 1, '2025-08-28 12:31:21', '2025-09-04 12:11:42'),
 (3, 'Sealing Roller', 'SR-001', 'Heat sealing roller for blister packing', 12000.00, NULL, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (4, 'Impeller Blade Set', 'IB-RMG500', 'Three-blade impeller for RMG-500', 25000.00, 1, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (5, 'Chopper Blade', 'CB-RMG500', 'Four-blade chopper for RMG-500', 18000.00, 1, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (6, 'Filter Bag - PTFE', 'FB-FBD500', 'PTFE filter bag for FBD-500', 22000.00, 2, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (7, 'Silicon Moulded Sieve', 'SMS-48', 'For 48 inch vibro sifter, food grade', 18500.00, 4, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (8, 'Stator Rotor Set', 'SRS-CM500', 'Stator rotor assembly for colloid mill', 35000.00, 5, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `spare_prices`
+--
+
+CREATE TABLE `spare_prices` (
+  `id` int(11) NOT NULL,
+  `spare_id` int(11) NOT NULL,
+  `price_id` int(11) DEFAULT NULL,
+  `price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `valid_from` date NOT NULL,
+  `valid_to` date NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `price_master_id` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -1367,7 +1465,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `full_name`, `email`, `profile_picture`, `is_admin`, `is_active`, `last_login`, `updated_at`, `password`, `created_at`) VALUES
-(1, 'admin', 'System Administrator', 'admin@pharmamachinery.com', NULL, 1, 1, '2025-09-04 01:06:45', '2025-09-04 01:06:45', '$2y$10$8cY.HsIujamqhApvjl9RwumZGhUdH0BRtAn8KAwPIx/.Bq33dBvBy', '2025-08-28 12:31:21'),
+(1, 'admin', 'System Administrator', 'admin@pharmamachinery.com', NULL, 1, 1, '2025-09-04 09:38:39', '2025-09-04 09:38:39', '$2y$10$8cY.HsIujamqhApvjl9RwumZGhUdH0BRtAn8KAwPIx/.Bq33dBvBy', '2025-08-28 12:31:21'),
 (3, 'manager1', 'ASD', 'manager@pharmamachinery.com', NULL, 0, 1, NULL, '2025-09-01 05:58:16', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2025-08-29 08:31:45'),
 (4, 'operator1', 'Jane Operator', 'operator@pharmamachinery.com', NULL, 0, 1, NULL, '2025-08-29 08:31:45', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2025-08-29 08:31:45'),
 (5, 'viewer1', 'Bob Viewer', 'viewer@pharmamachinery.com', NULL, 0, 1, NULL, '2025-08-29 08:31:45', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2025-08-29 08:31:45');
@@ -1447,6 +1545,23 @@ ALTER TABLE `machines`
   ADD UNIQUE KEY `unique_part_code` (`part_code`);
 
 --
+-- Indexes for table `machine_features`
+--
+ALTER TABLE `machine_features`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_machine_feature` (`machine_id`,`feature_name`);
+
+--
+-- Indexes for table `machine_feature_prices`
+--
+ALTER TABLE `machine_feature_prices`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_machine_feature_date` (`machine_id`,`feature_name`,`valid_from`,`valid_to`),
+  ADD KEY `idx_machine_feature_active` (`machine_id`,`feature_name`,`is_active`),
+  ADD KEY `idx_date_range` (`valid_from`,`valid_to`),
+  ADD KEY `price_master_id` (`price_master_id`);
+
+--
 -- Indexes for table `permissions`
 --
 ALTER TABLE `permissions`
@@ -1514,6 +1629,13 @@ ALTER TABLE `quotation_items`
   ADD UNIQUE KEY `unique_quotation_sl_no` (`quotation_id`,`sl_no`);
 
 --
+-- Indexes for table `quotation_machine_features`
+--
+ALTER TABLE `quotation_machine_features`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_quotation_item_id` (`quotation_item_id`);
+
+--
 -- Indexes for table `roles`
 --
 ALTER TABLE `roles`
@@ -1566,6 +1688,19 @@ ALTER TABLE `spares`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `unique_part_code` (`part_code`),
   ADD KEY `idx_machine_id` (`machine_id`);
+
+--
+-- Indexes for table `spare_prices`
+--
+ALTER TABLE `spare_prices`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_spare_dates` (`spare_id`,`valid_from`,`valid_to`),
+  ADD KEY `spare_id` (`spare_id`),
+  ADD KEY `price_id` (`price_id`),
+  ADD KEY `valid_dates` (`valid_from`,`valid_to`),
+  ADD KEY `is_active` (`is_active`),
+  ADD KEY `idx_spare_prices_active_dates` (`spare_id`,`is_active`,`valid_from`,`valid_to`),
+  ADD KEY `price_master_id` (`price_master_id`);
 
 --
 -- Indexes for table `users`
@@ -1622,6 +1757,18 @@ ALTER TABLE `email_logs`
 -- AUTO_INCREMENT for table `machines`
 --
 ALTER TABLE `machines`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+
+--
+-- AUTO_INCREMENT for table `machine_features`
+--
+ALTER TABLE `machine_features`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT for table `machine_feature_prices`
+--
+ALTER TABLE `machine_feature_prices`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
@@ -1640,13 +1787,13 @@ ALTER TABLE `price_master`
 -- AUTO_INCREMENT for table `purchase_invoices`
 --
 ALTER TABLE `purchase_invoices`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `purchase_invoice_items`
 --
 ALTER TABLE `purchase_invoice_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `purchase_orders`
@@ -1671,6 +1818,12 @@ ALTER TABLE `quotations`
 --
 ALTER TABLE `quotation_items`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `quotation_machine_features`
+--
+ALTER TABLE `quotation_machine_features`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `roles`
@@ -1715,6 +1868,12 @@ ALTER TABLE `spares`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
+-- AUTO_INCREMENT for table `spare_prices`
+--
+ALTER TABLE `spare_prices`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
@@ -1735,6 +1894,20 @@ ALTER TABLE `user_roles`
 --
 ALTER TABLE `credit_notes`
   ADD CONSTRAINT `fk_credit_notes_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `machine_features`
+--
+ALTER TABLE `machine_features`
+  ADD CONSTRAINT `machine_features_ibfk_1` FOREIGN KEY (`machine_id`) REFERENCES `machines` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `machine_feature_prices`
+--
+ALTER TABLE `machine_feature_prices`
+  ADD CONSTRAINT `machine_feature_prices_ibfk_1` FOREIGN KEY (`machine_id`) REFERENCES `machines` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `machine_feature_prices_ibfk_2` FOREIGN KEY (`price_master_id`) REFERENCES `price_master` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `machine_feature_prices_ibfk_3` FOREIGN KEY (`price_master_id`) REFERENCES `price_master` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `price_master`
@@ -1775,6 +1948,12 @@ ALTER TABLE `quotation_items`
   ADD CONSTRAINT `fk_quotation_items_quotation` FOREIGN KEY (`quotation_id`) REFERENCES `quotations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
+-- Constraints for table `quotation_machine_features`
+--
+ALTER TABLE `quotation_machine_features`
+  ADD CONSTRAINT `quotation_machine_features_ibfk_1` FOREIGN KEY (`quotation_item_id`) REFERENCES `quotation_items` (`id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `role_permissions`
 --
 ALTER TABLE `role_permissions`
@@ -1811,6 +1990,15 @@ ALTER TABLE `sales_order_items`
 --
 ALTER TABLE `spares`
   ADD CONSTRAINT `fk_spares_machine` FOREIGN KEY (`machine_id`) REFERENCES `machines` (`id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `spare_prices`
+--
+ALTER TABLE `spare_prices`
+  ADD CONSTRAINT `spare_prices_ibfk_1` FOREIGN KEY (`price_master_id`) REFERENCES `price_master` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `spare_prices_ibfk_2` FOREIGN KEY (`price_master_id`) REFERENCES `price_master` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `spare_prices_price_id_foreign` FOREIGN KEY (`price_id`) REFERENCES `price_master` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `spare_prices_spare_id_foreign` FOREIGN KEY (`spare_id`) REFERENCES `spares` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `user_roles`

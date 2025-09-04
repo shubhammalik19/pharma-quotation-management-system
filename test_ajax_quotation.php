@@ -1,15 +1,16 @@
 <?php
-// ajax/get_quotation_details.php
-include '../common/conn.php';
-include '../common/functions.php';
+// Test the AJAX endpoint directly with correct paths
+$_GET['id'] = 5;
 
-header('Content-Type: application/json');
+// Simulate the session for authentication
+session_start();
+$_SESSION['user_id'] = 1; // Mock user session
 
-if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
-    echo json_encode(['success' => false, 'message' => 'Invalid ID.']);
-    exit;
-}
+// Include from correct directory
+include 'common/conn.php';
+include 'common/functions.php';
 
+// Now call the endpoint logic
 $quotation_id = intval($_GET['id']);
 
 // Get quotation details with customer information
@@ -66,11 +67,14 @@ if ($result && $result->num_rows > 0) {
         }
     }
     
-    echo json_encode([
+    $response = [
         'success' => true, 
         'quotation' => $quotation,
         'items' => $items
-    ]);
+    ];
+    
+    echo "JSON Response:\n";
+    echo json_encode($response, JSON_PRETTY_PRINT);
 } else {
     echo json_encode(['success' => false, 'message' => 'Quotation not found.']);
 }

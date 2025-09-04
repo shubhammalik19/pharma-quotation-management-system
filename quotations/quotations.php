@@ -94,6 +94,27 @@ if ($_POST) {
                             if (!$conn->query($item_sql)) {
                                 throw new Exception("Error saving item: " . $conn->error);
                             }
+                            
+                            $quotation_item_id = $conn->insert_id;
+                            
+                            // Handle machine features if item type is machine and features are provided
+                            if ($item_type === 'machine' && isset($item['features']) && is_array($item['features'])) {
+                                foreach ($item['features'] as $feature) {
+                                    $feature_name = sanitizeInput($feature['name']);
+                                    $feature_price = floatval($feature['price']);
+                                    $feature_quantity = intval($feature['quantity'] ?? 1);
+                                    $feature_total = $feature_price * $feature_quantity;
+                                    
+                                    if ($feature_price > 0) {
+                                        $feature_sql = "INSERT INTO quotation_machine_features (quotation_item_id, feature_name, price, quantity, total_price) 
+                                                        VALUES ($quotation_item_id, '$feature_name', $feature_price, $feature_quantity, $feature_total)";
+                                        
+                                        if (!$conn->query($feature_sql)) {
+                                            throw new Exception("Error saving machine feature: " . $conn->error);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     
@@ -187,6 +208,27 @@ if ($_POST) {
                         if (!$conn->query($item_sql)) {
                             throw new Exception("Error saving item: " . $conn->error);
                         }
+                        
+                        $quotation_item_id = $conn->insert_id;
+                        
+                        // Handle machine features if item type is machine and features are provided
+                        if ($item_type === 'machine' && isset($item['features']) && is_array($item['features'])) {
+                            foreach ($item['features'] as $feature) {
+                                $feature_name = sanitizeInput($feature['name']);
+                                $feature_price = floatval($feature['price']);
+                                $feature_quantity = intval($feature['quantity'] ?? 1);
+                                $feature_total = $feature_price * $feature_quantity;
+                                
+                                if ($feature_price > 0) {
+                                    $feature_sql = "INSERT INTO quotation_machine_features (quotation_item_id, feature_name, price, quantity, total_price) 
+                                                    VALUES ($quotation_item_id, '$feature_name', $feature_price, $feature_quantity, $feature_total)";
+                                    
+                                    if (!$conn->query($feature_sql)) {
+                                        throw new Exception("Error saving machine feature: " . $conn->error);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 
@@ -228,6 +270,8 @@ if (isset($_GET['delete'])) {
         
         // Start transaction
         $conn->begin_transaction();
+
+        
         
         try {
             // Delete quotation items first
@@ -285,7 +329,14 @@ $machines = $conn->query("
     WHERE m.is_active = 1 
     ORDER BY m.name
 ");
-$spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE is_active = 1 ORDER BY part_name");
+$spares = $conn->query("
+    SELECT s.id, s.part_name, s.part_code, 
+           COALESCE(sp.price, s.price, 0) as price
+    FROM spares s 
+    LEFT JOIN spare_prices sp ON s.id = sp.spare_id AND sp.is_active = 1 AND CURDATE() BETWEEN sp.valid_from AND sp.valid_to
+    WHERE s.is_active = 1 
+    ORDER BY s.part_name
+");
 ?>
 
 <div class="container-fluid mt-4">
@@ -540,9 +591,12 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
 
 <!-- Add Machine Modal -->
 <div class="modal fade" id="quotationMachineModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-gear"></i> Add Machine</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-gear"></i> Add Machine with Features</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
             <div class="modal-body">
                 <div class="mb-3">
                     <label for="quotationMachineSelect" class="form-label">Select Machine *</label>
@@ -555,10 +609,37 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
                         <?php endwhile; ?>
                     </select>
                 </div>
-                <div class="mb-3"><label for="quotationMachineQty" class="form-label">Quantity *</label><input type="number" class="form-control" id="quotationMachineQty" min="1" value="1"></div>
-                <div class="mb-3"><label for="quotationMachinePrice" class="form-label">Unit Price (₹) *</label><input type="number" class="form-control" id="quotationMachinePrice" step="0.01" min="0" placeholder="0.00"></div>
-                <div class="mb-3"><label for="quotationMachineDesc" class="form-label">Description</label><textarea class="form-control" id="quotationMachineDesc" rows="3"></textarea></div>
-                <div class="mb-3"><label for="quotationMachineSpecs" class="form-label">Specifications</label><textarea class="form-control" id="quotationMachineSpecs" rows="2"></textarea></div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="quotationMachineQty" class="form-label">Quantity *</label>
+                        <input type="number" class="form-control" id="quotationMachineQty" min="1" value="1">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="quotationMachinePrice" class="form-label">Unit Price (₹) *</label>
+                        <input type="number" class="form-control" id="quotationMachinePrice" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="quotationMachineDesc" class="form-label">Description</label>
+                    <textarea class="form-control" id="quotationMachineDesc" rows="2"></textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="quotationMachineSpecs" class="form-label">Specifications</label>
+                    <textarea class="form-control" id="quotationMachineSpecs" rows="2"></textarea>
+                </div>
+
+                <!-- Machine Features Section -->
+                <div id="machineFeaturesList" class="mt-4" style="display: none;">
+                    <hr>
+                    <h6 class="text-primary"><i class="bi bi-stars"></i> Machine Features (Optional)</h6>
+                    <p class="text-muted small">Select features to include with this machine in the quotation:</p>
+                    <div id="featuresContainer" class="border rounded p-3" style="max-height: 300px; overflow-y: auto; background-color: #f8f9fa;">
+                        <!-- Features will be loaded here -->
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -621,6 +702,31 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
         background: #fff url('data:image/gif;base64,R0lGODlhEAAQAPIAAP///wAAAMLCwkJCQgAAAGJiYoKCgpKSkiH/C05FVFNDQVBFMi4wAwEAAAAh/hpDcmVhdGVkIHdpdGggYWpheGxvYWQuaW5mbwAh+QQJCgAAACwAAAAAEAAQAAADMwi63P4wyklrE2MIOggZnAdOmGYJRbExwroUmcG2LmDEwnHQLVsYOd2mBzkYDAdKa+dIAAAh+QQJCgAAACwAAAAAEAAQAAADNAi63P5OjCEgG4QMu7DmikRxQlFUYDEZIGBMRVsaqHwctXXf7WEYB4Ag1xjihkMZsiUkKhIAIfkECQoAAAAsAAAAABAAEAAAAzYIujIjK8pByJDMlFYvBoVjHA70GU7xSUJhmKtwHPAKzLO9HMaoKwJZ7Rf8AYPDDzKpZBqfvwQAIfkECQoAAAAsAAAAABAAEAAAAzMIumIlK8oyhpHsnFZfhYumCYUhDAQxRIdhHBGqRoKw0R8DYlJd8z0fMDgsGo/IpHI5TAAAIfkECQoAAAAsAAAAABAAEAAAAzIIunInK0rnZBTwGPNMgQwmdsNgXGJUlIWEuR5oWUIpz8pAEAMe6TwfwyYsGo/IpFKSAAAh+QQJCgAAACwAAAAAEAAQAAADMwi6IMKQORfjdOe82p4wGccc4CEuQradylesojEMBgsUc2G7sDX3lQGBMLAJibufbSlKAAAh+QQJCgAAACwAAAAAEAAQAAADMgi63P7wjQkLDfwACl3iyOsGgfFjhJUdZBmmBnSZYgYpvr7KfD4rGGF4/I5cUhTdACwWAA==') no-repeat right center;
         background-size: 16px 16px;
         padding-right: 40px;
+    }
+
+    /* Machine features styling */
+    .feature-item {
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 10px;
+        margin-bottom: 8px;
+        background: white;
+        cursor: pointer;
+    }
+    .feature-item:hover {
+        background-color: #f8f9fa;
+    }
+    .feature-item.selected {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    .feature-item .feature-price {
+        font-weight: bold;
+        color: #28a745;
+    }
+    .feature-item .no-price {
+        color: #6c757d;
+        font-style: italic;
     }
 </style>
 

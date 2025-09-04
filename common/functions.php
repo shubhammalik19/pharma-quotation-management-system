@@ -1113,6 +1113,18 @@ function checkMachineDependencies($conn, $machine_id) {
         }
     }
     
+    // Check Machine Features linked to this machine
+    $sql = "SELECT COUNT(*) as count FROM machine_features WHERE machine_id = $machine_id";
+    $result = $conn->query($sql);
+    if (!$result) {
+        throw new Exception("Error in machine_features query: " . $conn->error);
+    }
+    if ($result && $row = $result->fetch_assoc()) {
+        if ($row['count'] > 0) {
+            $dependencies[] = $row['count'] . ' Machine Feature(s)';
+        }
+    }
+    
     return $dependencies;
 }
 
@@ -1120,7 +1132,7 @@ function checkMachineDependencies($conn, $machine_id) {
 function checkQuotationDependencies($conn, $quotation_id) {
     $dependencies = [];
     
-    // Check Sales Orders
+    // Check Sales Orders (direct reference)
     $sql = "SELECT COUNT(*) as count FROM sales_orders WHERE quotation_id = $quotation_id";
     $result = $conn->query($sql);
     if ($result && $row = $result->fetch_assoc()) {
@@ -1129,20 +1141,7 @@ function checkQuotationDependencies($conn, $quotation_id) {
         }
     }
     
-    // Check Sales Invoices (indirect reference through customer matching)
-    // Since sales_invoices doesn't have direct quotation links, we'll check by customer
-    $sql = "SELECT COUNT(DISTINCT si.id) as count 
-            FROM sales_invoices si 
-            INNER JOIN quotations q ON si.customer_id = q.customer_id 
-            WHERE q.id = $quotation_id";
-    $result = $conn->query($sql);
-    if ($result && $row = $result->fetch_assoc()) {
-        if ($row['count'] > 0) {
-            $dependencies[] = $row['count'] . ' Sales Invoice(s) (same customer)';
-        }
-    }
-    
-    // Check Purchase Orders that reference this quotation
+    // Check Purchase Orders (direct reference)
     $sql = "SELECT COUNT(*) as count FROM purchase_orders WHERE quotation_id = $quotation_id";
     $result = $conn->query($sql);
     if ($result && $row = $result->fetch_assoc()) {
@@ -1151,20 +1150,8 @@ function checkQuotationDependencies($conn, $quotation_id) {
         }
     }
     
-    // Check Credit Notes (indirect reference through customer matching)
-    $sql = "SELECT COUNT(DISTINCT cn.id) as count 
-            FROM credit_notes cn 
-            INNER JOIN quotations q ON cn.customer_id = q.customer_id 
-            WHERE q.id = $quotation_id";
-    $result = $conn->query($sql);
-    if ($result && $row = $result->fetch_assoc()) {
-        if ($row['count'] > 0) {
-            $dependencies[] = $row['count'] . ' Credit Note(s) (same customer)';
-        }
-    }
-    
-    // Check Debit Notes (no direct relationship available - skip this check)
-    // Debit notes don't have customer_id or quotation_id reference
+    // Note: Sales Invoices and Credit Notes don't have direct quotation_id references
+    // So we don't check them as dependencies. Only direct references should prevent deletion.
     
     return $dependencies;
 }

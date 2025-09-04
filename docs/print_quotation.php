@@ -53,6 +53,24 @@ $items_sql = "SELECT qi.*,
               ORDER BY qi.sl_no";
 $items_result = $conn->query($items_sql);
 
+/* ---------- Load Machine Features ---------- */
+$machine_features = [];
+$features_sql = "SELECT qmf.quotation_item_id, qmf.feature_name, qmf.price, qmf.quantity, qmf.total_price
+                 FROM quotation_machine_features qmf
+                 INNER JOIN quotation_items qi ON qmf.quotation_item_id = qi.id
+                 WHERE qi.quotation_id = $quotation_id
+                 ORDER BY qmf.id";
+$features_result = $conn->query($features_sql);
+if ($features_result) {
+    while ($feature = $features_result->fetch_assoc()) {
+        $item_id = $feature['quotation_item_id'];
+        if (!isset($machine_features[$item_id])) {
+            $machine_features[$item_id] = [];
+        }
+        $machine_features[$item_id][] = $feature;
+    }
+}
+
 /* ---------- Totals ---------- */
 $subtotal = 0.0;
 $items = [];
@@ -63,6 +81,13 @@ if ($items_result) {
     $row['total_price'] = (float)($row['total_price'] ?? ($row['unit_price'] * $row['quantity']));
     $items[] = $row;
     $subtotal += $row['total_price'];
+    
+    // Add machine features to subtotal
+    if (isset($machine_features[$row['id']])) {
+        foreach ($machine_features[$row['id']] as $feature) {
+            $subtotal += (float)$feature['total_price'];
+        }
+    }
   }
 }
 $discount_amount = (float)($quotation['discount_amount'] ?? 0);
@@ -165,6 +190,22 @@ if ($is_pdf_mode) { ini_set('display_errors','0'); error_reporting(E_ALL); }
           <td class="num"><?php echo rtrim(rtrim(number_format((float)$it['quantity'],2,'.',''), '0'), '.'); ?></td>
           <td class="num"><?php echo fmt_money($it['total_price']); ?></td>
         </tr>
+        
+        <?php 
+        // Display machine features if this is a machine item
+        if ($it['item_type'] === 'machine' && isset($machine_features[$it['id']])): 
+          foreach ($machine_features[$it['id']] as $feature): ?>
+        <tr style="background-color: #f8f9fa;">
+          <td></td>
+          <td style="padding-left: 20px;">
+            <small><em>— <?php echo e($feature['feature_name']); ?></em></small>
+          </td>
+          <td class="num"><small><?php echo fmt_money($feature['price']); ?></small></td>
+          <td class="num"><small><?php echo rtrim(rtrim(number_format((float)$feature['quantity'],2,'.',''), '0'), '.'); ?></small></td>
+          <td class="num"><small><?php echo fmt_money($feature['total_price']); ?></small></td>
+        </tr>
+        <?php endforeach; endif; ?>
+        
       <?php endforeach; endif; ?>
     </tbody>
   </table>

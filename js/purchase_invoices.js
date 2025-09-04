@@ -582,7 +582,7 @@ function piRenderItems() {
     // Render machines with their linked spares
     machines.forEach((machine, machineIndex) => {
         const linkedSpares = piItems.filter(item => 
-            item.type === 'spare' && item.machine_id && parseInt(item.machine_id) === parseInt(machine.item_id)
+            item.type === 'spare' && item.machine_id && item.machine_id === machine.item_id
         );
         
         // Render machine
@@ -746,8 +746,22 @@ function loadPIDetails(piId) {
                 $('#discount_amount').val(pi.discount_amount);
                 $('#grand_total').val(pi.final_total);
                 
-                // Load items
-                piItems = data.items || [];
+                // Load items and transform them to the expected structure
+                piItems = [];
+                if (data.items && data.items.length > 0) {
+                    data.items.forEach(function(item) {
+                        piItems.push({
+                            type: item.item_type,
+                            item_id: parseInt(item.item_id),
+                            name: item.item_name,
+                            description: item.description || '',
+                            quantity: parseInt(item.quantity),
+                            unit_price: parseFloat(item.unit_price),
+                            total_price: parseFloat(item.total_price),
+                            machine_id: item.machine_id ? parseInt(item.machine_id) : null
+                        });
+                    });
+                }
                 piRenderItems();
                 updateTargetMachineDropdown(); // Update machine dropdown
                 

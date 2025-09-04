@@ -25,9 +25,10 @@ if ($id <= 0) {
 
 try {
     // Get purchase invoice details
-    $sql = "SELECT pi.*, c.email as vendor_email 
+    $sql = "SELECT pi.*, c.email as vendor_email, po.po_number as purchase_order_number
             FROM purchase_invoices pi 
             LEFT JOIN customers c ON pi.vendor_id = c.id 
+            LEFT JOIN purchase_orders po ON pi.purchase_order_id = po.id
             WHERE pi.id = $id";
     
     $result = $conn->query($sql);

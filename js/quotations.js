@@ -30,6 +30,102 @@ function openEmailQuotationModal(quotationId){
   });
 }
 
+// Function to load machine features
+function loadMachineFeatures(machineId) {
+    if (!machineId) {
+        $('#machineFeaturesList').hide();
+        return;
+    }
+    
+    $.ajax({
+        url: '../ajax/get_machine_features_for_quotation.php',
+        type: 'GET',
+        data: { machine_id: machineId },
+        dataType: 'json',
+        success: function(data) {
+            if (data.success && data.features && data.features.length > 0) {
+                displayMachineFeatures(data.features);
+            } else {
+                $('#machineFeaturesList').hide();
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error loading machine features:', error);
+            $('#machineFeaturesList').hide();
+        }
+    });
+}
+
+// Function to display machine features
+function displayMachineFeatures(features) {
+    let featuresHtml = '';
+    
+    features.forEach(function(feature, index) {
+        const hasPrice = feature.has_price && feature.feature_price > 0;
+        const priceDisplay = hasPrice ? `₹${parseFloat(feature.feature_price).toFixed(2)}` : 'No price set';
+        const priceClass = hasPrice ? 'feature-price' : 'no-price';
+        
+        featuresHtml += `
+            <div class="feature-item" data-feature-id="${feature.feature_id}" data-feature-name="${esc(feature.feature_name)}" data-feature-price="${feature.feature_price || 0}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <input type="checkbox" class="form-check-input me-2" id="feature_${feature.feature_id}">
+                        <label for="feature_${feature.feature_id}" class="form-check-label">
+                            <strong>${esc(feature.feature_name)}</strong>
+                        </label>
+                    </div>
+                    <div class="${priceClass}">${priceDisplay}</div>
+                </div>
+                ${hasPrice ? `
+                <div class="mt-2">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label small">Quantity</label>
+                            <input type="number" class="form-control form-control-sm feature-qty" min="1" value="1" disabled>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Unit Price (₹)</label>
+                            <input type="number" class="form-control form-control-sm feature-price-input" step="0.01" min="0" value="${feature.feature_price}" disabled>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    
+    $('#featuresContainer').html(featuresHtml);
+    $('#machineFeaturesList').show();
+    
+    // Handle feature selection
+    $('.feature-item').on('click', function() {
+        const checkbox = $(this).find('input[type="checkbox"]');
+        const isChecked = !checkbox.prop('checked');
+        checkbox.prop('checked', isChecked);
+        
+        if (isChecked) {
+            $(this).addClass('selected');
+            $(this).find('.feature-qty, .feature-price-input').prop('disabled', false);
+        } else {
+            $(this).removeClass('selected');
+            $(this).find('.feature-qty, .feature-price-input').prop('disabled', true);
+        }
+    });
+    
+    // Handle checkbox clicks
+    $('.feature-item input[type="checkbox"]').on('click', function(e) {
+        e.stopPropagation();
+        const featureItem = $(this).closest('.feature-item');
+        if ($(this).prop('checked')) {
+            featureItem.addClass('selected');
+            featureItem.find('.feature-qty, .feature-price-input').prop('disabled', false);
+        } else {
+            featureItem.removeClass('selected');
+            featureItem.find('.feature-qty, .feature-price-input').prop('disabled', true);
+        }
+    });
+}
+
 // ---------- GLOBAL VARIABLES ----------
 let quotationItems = [];
 
@@ -78,6 +174,7 @@ $(document).ready(function() {
         const selected = $(this).find('option:selected');
         const price = parseFloat(selected.data('price') || 0);
         const name = selected.data('name') || '';
+        const machineId = selected.val();
         
         // Set price (ensure minimum display)
         if (price > 0) {
@@ -94,6 +191,13 @@ $(document).ready(function() {
             $('#quotationMachineDesc').val(`${name} - Machine`);
         } else {
             $('#quotationMachineDesc').val('');
+        }
+        
+        // Load machine features
+        if (machineId) {
+            loadMachineFeatures(machineId);
+        } else {
+            $('#machineFeaturesList').hide();
         }
     });
 
@@ -121,6 +225,22 @@ $(document).ready(function() {
         const price = parseFloat($('#quotationMachinePrice').val());
 
         if (selected.val() && qty > 0 && price >= 0) {
+            // Collect selected features
+            const selectedFeatures = [];
+            $('.feature-item.selected').each(function() {
+                const featureName = $(this).data('feature-name');
+                const featurePrice = parseFloat($(this).find('.feature-price-input').val() || 0);
+                const featureQty = parseInt($(this).find('.feature-qty').val() || 1);
+                
+                if (featurePrice > 0) {
+                    selectedFeatures.push({
+                        name: featureName,
+                        price: featurePrice,
+                        quantity: featureQty
+                    });
+                }
+            });
+            
             const item = {
                 type: 'machine',
                 item_id: selected.val(),
@@ -130,7 +250,8 @@ $(document).ready(function() {
                 quantity: qty,
                 unit_price: price,
                 total_price: qty * price,
-                sl_no: quotationItems.length + 1
+                sl_no: quotationItems.length + 1,
+                features: selectedFeatures // Add features to the item
             };
             quotationItems.push(item);
             renderQuotationItems();
@@ -142,6 +263,7 @@ $(document).ready(function() {
             $('#quotationMachinePrice').val('');
             $('#quotationMachineDesc').val('');
             $('#quotationMachineSpecs').val('');
+            $('#machineFeaturesList').hide();
         } else {
             alert('Please select a machine, quantity, and price.');
         }
@@ -201,14 +323,26 @@ $(document).ready(function() {
                 const displayName = item.name || (item.type === 'machine' ? 'Machine' : 'Spare Part');
                 const displayPrice = (item.unit_price || 0).toFixed(2);
                 
+                // Build features display for machines
+                let featuresHtml = '';
+                if (item.type === 'machine' && item.features && item.features.length > 0) {
+                    featuresHtml = '<div class="mt-2"><small class="text-primary"><i class="bi bi-stars"></i> Features:</small>';
+                    item.features.forEach(feature => {
+                        const featureTotal = feature.price * feature.quantity;
+                        featuresHtml += `<br><small class="text-muted ms-3">• ${esc(feature.name)} (Qty: ${feature.quantity} × ₹${feature.price.toFixed(2)} = ₹${featureTotal.toFixed(2)})</small>`;
+                    });
+                    featuresHtml += '</div>';
+                }
+                
                 const itemHtml = `
-                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                    <div class="d-flex justify-content-between align-items-start mb-2 p-2 border rounded">
                         <div>
                             <i class="bi ${icon}"></i>
                             <strong>${esc(displayName)}</strong>
                             <span class="badge ${badge} ms-1">${item.type}</span>
                             <br><small class="text-muted">Qty: ${item.quantity} × ₹${displayPrice} = ₹${(item.total_price || 0).toFixed(2)}</small>
                             ${item.description ? '<br><small class="text-muted">' + esc(item.description) + '</small>' : ''}
+                            ${featuresHtml}
                         </div>
                         <button type="button" class="btn btn-sm btn-outline-danger remove-quotation-item" data-index="${index}"><i class="bi bi-trash"></i></button>
                     </div>
@@ -230,13 +364,37 @@ $(document).ready(function() {
                     <input type="hidden" name="items[${index}][total_price]" value="${item.total_price}">
                     <input type="hidden" name="items[${index}][sl_no]" value="${item.sl_no}">
                 `);
+                
+                // Add machine features to hidden inputs
+                if (item.type === 'machine' && item.features && item.features.length > 0) {
+                    item.features.forEach((feature, featureIndex) => {
+                        $('#quotationForm').append(`
+                            <input type="hidden" name="items[${index}][features][${featureIndex}][name]" value="${esc(feature.name)}">
+                            <input type="hidden" name="items[${index}][features][${featureIndex}][price]" value="${feature.price}">
+                            <input type="hidden" name="items[${index}][features][${featureIndex}][quantity]" value="${feature.quantity}">
+                        `);
+                    });
+                }
             });
         }
         calculateTotals();
     }
 
     function calculateTotals() {
-        const subtotal = quotationItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+        let subtotal = 0;
+        
+        quotationItems.forEach(item => {
+            // Add the item price
+            subtotal += (item.total_price || 0);
+            
+            // Add feature prices for machine items
+            if (item.type === 'machine' && item.features && item.features.length > 0) {
+                item.features.forEach(feature => {
+                    subtotal += (feature.price * feature.quantity) || 0;
+                });
+            }
+        });
+        
         $('#total_amount').val(subtotal.toFixed(2));
         quotationCalcDiscount();
     }
@@ -344,7 +502,8 @@ $(document).ready(function() {
                         quantity: parseInt(item.quantity),
                         unit_price: parseFloat(item.unit_price),
                         total_price: parseFloat(item.total_price),
-                        sl_no: parseInt(item.sl_no)
+                        sl_no: parseInt(item.sl_no),
+                        features: item.features || [] // Include features for machine items
                     }));
                     
                     renderQuotationItems();

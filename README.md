@@ -38,19 +38,46 @@ A comprehensive web-based quotation and business management system designed spec
 ### 🏢 Core Business Management
 - **Customer/Vendor Management**: Complete CRM with support for customers, vendors, or both
 - **Machine Catalog**: Comprehensive machinery database with specifications and technical details
-- **Spare Parts Management**: Inventory management for machine spare parts
-- **Price Master**: Dynamic pricing system with validity periods
+- **Spare Parts Management**: Inventory management for machine spare parts with machine linking
+- **Advanced Pricing System**: Dynamic pricing with validity periods and machine feature pricing
+
+### 🔧 Advanced Machine Features & Pricing
+- **Machine Feature Management**: 
+  - Define custom features for each machine (e.g., capacity, material, specifications)
+  - Add/edit/delete machine features with complete CRUD operations
+  - Feature linking to machines with foreign key relationships
+
+- **Feature-Based Pricing System**:
+  - **Unified Pricing Interface**: Single form for both machine base prices and feature prices
+  - **Feature-Specific Pricing**: Set individual prices for each machine feature
+  - **Time-Based Pricing**: Different pricing periods with validity date ranges
+  - **Overlap Prevention**: System prevents conflicting date ranges for same feature
+  - **Price Status Tracking**: Active, future, and expired price indicators
+  - **MySQL Transactions**: Robust database operations with rollback on failures
+
+- **Enhanced Quotation System**:
+  - **Machine-Feature Integration**: Include machine features in quotations with individual pricing
+  - **Dynamic Feature Loading**: Automatically load available features when machines are selected
+  - **Feature Price Calculation**: Automatic calculation of feature costs in quotations
+  - **Professional Output**: Features display in generated PDFs and printed documents
 
 ### 📊 Sales & Documentation
 - **Quotation Management**: 
-  - Create, edit, and track quotations
-  - PDF generation with company branding
+  - Create, edit, and track quotations with machine features
+  - PDF generation with company branding and feature details
   - Email quotations directly to customers
   - Revision tracking and validity management
   
-- **Sales Orders**: Convert quotations to sales orders with status tracking
-- **Purchase Orders**: Vendor purchase order management
-- **Sales Invoices**: Generate professional invoices with GST calculations
+- **Sales Orders**: Convert quotations to sales orders with feature tracking
+- **Purchase Orders**: Vendor purchase order management with machine-spare relationships
+- **Purchase Invoices**: 
+  - **Enhanced Purchase Invoice System**: Complete purchase invoice management
+  - **Machine-Spare Linking**: Link spare parts to specific machines in invoices
+  - **Hierarchical Display**: Visual grouping of machines with their related spares
+  - **Separate Spare Management**: Handle independent spare parts not linked to machines
+  - **Advanced Item Management**: Three types of item additions (machines, separate spares, linked spares)
+  
+- **Sales Invoices**: Generate professional invoices with GST calculations and feature details
 - **Credit/Debit Notes**: Financial document management
 
 ### 👥 User Management & Security
@@ -274,14 +301,24 @@ Add Customer → Set GST Details → Configure Addresses → Assign Categories
 Add Machines → Set Specifications → Configure Pricing → Link Spare Parts
 ```
 
-#### 3. Quotation Process
+#### 3. Machine and Feature Setup
 ```
-Create Quotation → Add Items → Calculate Totals → Generate PDF → Send Email
+Add Machines → Define Features → Set Feature Pricing → Configure Spare Parts
 ```
 
-#### 4. Order Management
+#### 4. Advanced Pricing Configuration
 ```
-Convert Quotation → Create Sales Order → Track Status → Generate Invoice
+Set Base Machine Prices → Add Feature Pricing → Configure Validity Periods → Monitor Price Status
+```
+
+#### 5. Enhanced Quotation Process
+```
+Create Quotation → Add Machines → Select Features → Calculate Feature Costs → Generate PDF → Send Email
+```
+
+#### 6. Purchase Invoice Management
+```
+Create Purchase Invoice → Add Machines → Link Spare Parts → Separate Items → Track Relationships
 ```
 
 ### Dashboard Overview
@@ -290,12 +327,37 @@ Convert Quotation → Create Sales Order → Track Status → Generate Invoice
 - Recent quotations and activities
 - Quick action buttons for common tasks
 
-### Creating a Quotation
+### Creating Enhanced Quotations with Machine Features
 1. Navigate to **Quotations** → **Create New**
 2. Select customer and add quotation details
-3. Add machines/spare parts with quantities and prices
-4. Review and save the quotation
-5. Generate PDF or send via email
+3. Add machines with their available features
+4. Select specific features and quantities for each machine
+5. System automatically calculates feature costs and totals
+6. Add spare parts (linked to machines or independent)
+7. Review comprehensive quotation with feature breakdown
+8. Generate professional PDF with feature details
+9. Send via email with complete specifications
+
+### Advanced Machine and Feature Management
+1. Go to **Machines** section
+2. Add machines with detailed specifications
+3. Define custom features for each machine
+4. Navigate to **Price Master** for pricing setup
+5. Use unified pricing interface to set base machine prices
+6. Switch to feature pricing mode to set individual feature costs
+7. Configure validity periods for time-based pricing
+8. Monitor active, future, and expired pricing status
+
+### Enhanced Purchase Invoice Processing
+1. Navigate to **Sales** → **Purchase Invoices**
+2. Create new purchase invoice with vendor details
+3. Add machines with comprehensive item management:
+   - **Add Machine**: Include machine with optional related spares
+   - **Add Separate Spare**: Independent spare parts
+   - **Add Spare to Machine**: Link spares to specific machines
+4. View hierarchical display showing machine-spare relationships
+5. Calculate totals with discounts and generate final invoice
+6. Print or email professional purchase invoices
 
 ### Managing Customers/Vendors
 1. Go to **Customers** section
@@ -312,16 +374,20 @@ Convert Quotation → Create Sales Order → Track Status → Generate Invoice
 ## 🗄️ Database Schema
 
 ### Core Tables
-- **customers**: Customer and vendor information
-- **machines**: Machinery catalog with specifications
-- **spares**: Spare parts inventory
-- **price_master**: Dynamic pricing with validity periods
+- **customers**: Customer and vendor information with entity type support
+- **machines**: Machinery catalog with specifications and technical details
+- **machine_features**: Machine feature definitions and specifications
+- **spares**: Spare parts inventory with machine linking capabilities
+- **price_master**: Dynamic pricing with validity periods for machines
+- **machine_feature_prices**: Individual pricing for machine features with date ranges
 
 ### Transaction Tables
-- **quotations** & **quotation_items**: Quotation management
-- **sales_orders** & **sales_order_items**: Sales order processing
+- **quotations** & **quotation_items**: Quotation management with machine features
+- **quotation_machine_features**: Feature-specific pricing and details in quotations
+- **sales_orders** & **sales_order_items**: Sales order processing with feature tracking
 - **purchase_orders** & **purchase_order_items**: Purchase order management
-- **sales_invoices** & **sales_invoice_items**: Invoice generation
+- **purchase_invoices** & **purchase_invoice_items**: Invoice generation with machine-spare relationships
+- **sales_invoices** & **sales_invoice_items**: Sales invoice management with feature details
 - **credit_notes** & **debit_notes**: Financial document management
 
 ### Security Tables
@@ -340,6 +406,21 @@ Convert Quotation → Create Sales Order → Track Status → Generate Invoice
 ### AJAX Endpoints
 The system provides various AJAX endpoints for dynamic functionality:
 
+#### Machine and Feature Management
+```javascript
+// Get machine features with pricing
+GET /ajax/get_machine_features_with_pricing.php?machine_id={machine_id}
+
+// Add machine feature
+POST /ajax/add_machine_feature.php
+
+// Delete machine feature
+DELETE /ajax/delete_machine_feature.php
+
+// Get feature prices
+GET /ajax/get_feature_prices.php?machine_id={machine_id}
+```
+
 #### Customer Management
 ```javascript
 // Get customer details
@@ -351,11 +432,23 @@ POST /ajax/unified_search.php
 
 #### Quotation Management
 ```javascript
-// Get quotation details
+// Get quotation details with features
 GET /ajax/get_quotation_details.php?id={quotation_id}
+
+// Get quotation features
+GET /ajax/get_machine_features_for_quotation.php?quotation_item_id={item_id}
 
 // Search quotations
 POST /ajax/search_quotations.php
+```
+
+#### Purchase Invoice Management
+```javascript
+// Get purchase invoice details
+GET /ajax/get_purchase_invoice_details.php?id={pi_id}
+
+// Get machine spares for linking
+GET /ajax/get_machine_spares.php?machine_id={machine_id}
 ```
 
 #### Email Functions
@@ -413,14 +506,28 @@ pharma-quotation-system/
 ├── sales/                 # Sales management
 │   ├── sales_orders.php
 │   ├── purchase_orders.php
+│   ├── purchase_invoices.php  # Enhanced purchase invoice system
 │   └── sales_invoices.php
 ├── reports/               # Reporting module
 ├── email/                 # Email configuration and services
 ├── docs/                  # Document generation (PDFs)
 ├── ajax/                  # AJAX endpoints
+│   ├── get_machine_features_with_pricing.php
+│   ├── add_machine_feature.php
+│   ├── delete_machine_feature.php
+│   ├── get_feature_prices.php
+│   ├── get_machine_spares.php
+│   └── get_purchase_invoice_details.php
 ├── js/                    # JavaScript modules
+│   ├── price_master.js    # Enhanced pricing functionality
+│   └── purchase_invoices.js  # Purchase invoice management
 ├── uploads/               # File uploads
 ├── vendor/                # Composer dependencies
+├── machines.php           # Machine management with features
+├── price_master.php       # Unified pricing system
+├── spares.php             # Spare parts management
+├── machine_feature_prices_table.sql  # Feature pricing schema
+├── spare_prices_table.sql # Spare pricing schema
 ├── dashboard.php          # Main dashboard
 ├── index.php             # Entry point
 ├── header.php            # Common header
@@ -538,9 +645,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Version 2.1 (Q4 2024) ✅
 - [x] Enhanced security features
-- [x] Improved mobile responsiveness
+- [x] Improved mobile responsiveness  
 - [x] Advanced reporting capabilities
 - [x] Email template customization
+- [x] **Machine Feature Management System**
+- [x] **Feature-Based Pricing with Time Validity**
+- [x] **Enhanced Purchase Invoice with Machine-Spare Linking**
+- [x] **Unified Pricing Interface with MySQL Transactions**
+- [x] **Hierarchical Item Display in Purchase Invoices**
 
 ### Version 3.0 (Q2 2025) 🚧
 - [ ] REST API development with OpenAPI documentation

@@ -64,6 +64,7 @@ if ($_POST) {
             }
             
             if (!empty($name)) {
+                
                 // Check for duplicate part_code if provided
                 $part_code_check = '';
                 if (!empty($part_code)) {
@@ -85,6 +86,7 @@ if ($_POST) {
                         ($attachment_type ? "'$attachment_type'" : 'NULL') . ", $is_active)";
                 
                 if ($conn->query($sql)) {
+                    $new_machine_id = $conn->insert_id;
                     redirectWithSuccess('Machine created successfully!');
                 } else {
                     // Handle specific duplicate part_code error
@@ -199,6 +201,34 @@ if ($_POST) {
             } else {
                 redirectWithError('Machine name is required!');
             }
+        }
+    }
+}
+
+// Handle feature delete
+if (isset($_GET['delete_feature'])) {
+    if (!hasPermission('machines', 'delete')) {
+        redirectWithError("You don't have permission to delete features!");
+    } else {
+        $feature_id = (int)$_GET['delete_feature'];
+        
+        // Get feature name for confirmation message
+        $feature_sql = "SELECT feature_name FROM machine_features WHERE id = $feature_id";
+        $feature_result = $conn->query($feature_sql);
+        $feature_name = '';
+        if ($feature_result && $feature_row = $feature_result->fetch_assoc()) {
+            $feature_name = $feature_row['feature_name'];
+        }
+        
+        $sql = "DELETE FROM machine_features WHERE id = $feature_id";
+        if ($conn->query($sql)) {
+            if ($conn->affected_rows > 0) {
+                redirectWithSuccess("Feature '$feature_name' deleted successfully!");
+            } else {
+                redirectWithError("Feature not found or already deleted!");
+            }
+        } else {
+            redirectWithError("Error deleting feature: " . $conn->error);
         }
     }
 }
@@ -385,116 +415,165 @@ $total_pages = ceil($total_records / $records_per_page);
                 </div>
             </div>
             
-            <!-- Machines List -->
+            <!-- Feature Management Section -->
             <div class="col-md-8">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5><i class="bi bi-list"></i> All Machines (<?php echo $total_records; ?>)</h5>
-                        <small>Page <?php echo $page; ?> of <?php echo $total_pages; ?></small>
+                    <div class="card-header">
+                        <h5><i class="bi bi-gear-fill"></i> Machine Features</h5>
                     </div>
                     <div class="card-body">
+                        <!-- Add Feature Form -->
+                        <div class="mb-4" id="featureSection">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="feature_name" class="form-label">Feature Name</label>
+                                    <input type="text" class="form-control" id="feature_name" name="feature_name" placeholder="Enter feature name..." disabled>
+                                    <small class="text-muted">Select or create a machine first to add features</small>
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end">
+                                    <button type="button" class="btn btn-success" id="addFeatureBtn" disabled>
+                                        <i class="bi bi-plus-circle"></i> ADD
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Features List -->
                         <div class="table-responsive">
                             <table class="table table-striped table-hover">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th>Name</th>
-                                        <th>Model</th>
-                                        <th>Category</th>
-                                        <th>Part Code</th>
-                                        <th>Attachment</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
+                                        <th>SNO</th>
+                                        <th>Feature Name</th>
+                                        <th>ACTION</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <?php
-                                    $sql = "SELECT * FROM machines $where_clause ORDER BY created_at DESC LIMIT $records_per_page OFFSET $offset";
-                                    $result = $conn->query($sql);
-                                    
-                                    if ($result && $result->num_rows > 0):
-                                        while ($row = $result->fetch_assoc()):
-                                    ?>
+                                <tbody id="featuresTableBody">
                                     <tr>
-                                        <td><strong><?php echo htmlspecialchars($row['name']); ?></strong></td>
-                                        <td><?php echo htmlspecialchars($row['model']); ?></td>
-                                        <td><?php echo htmlspecialchars($row['category']); ?></td>
-                                        <td>
-                                            <?php if (!empty($row['part_code'])): ?>
-                                                <span class="badge bg-info"><?php echo htmlspecialchars($row['part_code']); ?></span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <?php if (!empty($row['attachment_filename'])): ?>
-                                                <div class="d-flex align-items-center">
-                                                    <?php 
-                                                    $ext = strtolower(pathinfo($row['attachment_filename'], PATHINFO_EXTENSION));
-                                                    if ($ext === 'pdf'): ?>
-                                                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
-                                                    <?php else: ?>
-                                                        <i class="bi bi-file-earmark-image text-primary me-1"></i>
-                                                    <?php endif; ?>
-                                                    <small class="text-muted me-2"><?php echo formatFileSize($row['attachment_size']); ?></small>
-                                                    <a href="<?php echo $row['attachment_path']; ?>" 
-                                                       class="btn btn-sm btn-outline-success" 
-                                                       target="_blank" 
-                                                       title="Download <?php echo htmlspecialchars($row['attachment_filename']); ?>">
-                                                        <i class="bi bi-download"></i>
-                                                    </a>
-                                                </div>
-                                            <?php else: ?>
-                                                <span class="text-muted">No file</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-<?php echo $row['is_active'] ? 'success' : 'secondary'; ?>">
-                                                <?php echo $row['is_active'] ? 'Active' : 'Inactive'; ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <button type="button" class="btn btn-sm btn-outline-primary edit-machine" data-id="<?php echo $row['id']; ?>">
-                                                <i class="bi bi-pencil"></i> View/Edit
-                                            </button>
-                                            <?php if (hasPermission('machines', 'delete')): ?>
-                                            <a href="?delete=<?php echo $row['id']; ?>" class="btn btn-sm btn-outline-danger machine-delete-btn" 
-                                               title="Delete Machine">
-                                                <i class="bi bi-trash"></i>
-                                            </a>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                    <?php 
-                                        endwhile;
-                                    else:
-                                    ?>
-                                    <tr>
-                                        <td colspan="7" class="text-center py-4">
+                                        <td colspan="3" class="text-center py-4">
                                             <i class="bi bi-gear display-1 text-muted"></i>
-                                            <p class="mt-3">No machines found.</p>
+                                            <p class="mt-3">Select a machine to view/add features.</p>
                                         </td>
                                     </tr>
-                                    <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
-                        
-                        <!-- Pagination -->
-                        <?php if ($total_pages > 1): ?>
-                            <nav><ul class="pagination justify-content-center">
-                                <?php if ($page > 1): ?>
-                                    <li class="page-item"><a class="page-link" href="?page=<?php echo ($page - 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>">Previous</a></li>
-                                <?php endif; ?>
-                                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                    <li class="page-item <?php echo ($i == $page) ? 'active' : ''; ?>"><a class="page-link" href="?page=<?php echo $i; ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>"><?php echo $i; ?></a></li>
-                                <?php endfor; ?>
-                                <?php if ($page < $total_pages): ?>
-                                    <li class="page-item"><a class="page-link" href="?page=<?php echo ($page + 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>">Next</a></li>
-                                <?php endif; ?>
-                            </ul></nav>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </form>
+    </div>
+
+    <!-- Machines List Section (Moved to Bottom) -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="bi bi-list"></i> All Machines (<?php echo $total_records; ?>)</h5>
+                    <small>Page <?php echo $page; ?> of <?php echo $total_pages; ?></small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Model</th>
+                                    <th>Category</th>
+                                    <th>Part Code</th>
+                                    <th>Attachment</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                $sql = "SELECT * FROM machines $where_clause ORDER BY created_at DESC LIMIT $records_per_page OFFSET $offset";
+                                $result = $conn->query($sql);
+                                
+                                if ($result && $result->num_rows > 0):
+                                    while ($row = $result->fetch_assoc()):
+                                ?>
+                                <tr>
+                                    <td><strong><?php echo htmlspecialchars($row['name']); ?></strong></td>
+                                    <td><?php echo htmlspecialchars($row['model']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['category']); ?></td>
+                                    <td>
+                                        <?php if (!empty($row['part_code'])): ?>
+                                            <span class="badge bg-info"><?php echo htmlspecialchars($row['part_code']); ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($row['attachment_filename'])): ?>
+                                            <div class="d-flex align-items-center">
+                                                <?php 
+                                                $ext = strtolower(pathinfo($row['attachment_filename'], PATHINFO_EXTENSION));
+                                                if ($ext === 'pdf'): ?>
+                                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                <?php else: ?>
+                                                    <i class="bi bi-file-earmark-image text-primary me-1"></i>
+                                                <?php endif; ?>
+                                                <small class="text-muted me-2"><?php echo formatFileSize($row['attachment_size']); ?></small>
+                                                <a href="<?php echo $row['attachment_path']; ?>" 
+                                                   class="btn btn-sm btn-outline-success" 
+                                                   target="_blank" 
+                                                   title="Download <?php echo htmlspecialchars($row['attachment_filename']); ?>">
+                                                    <i class="bi bi-download"></i>
+                                                </a>
+                                            </div>
+                                        <?php else: ?>
+                                            <span class="text-muted">No file</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-<?php echo $row['is_active'] ? 'success' : 'secondary'; ?>">
+                                            <?php echo $row['is_active'] ? 'Active' : 'Inactive'; ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-primary edit-machine" data-id="<?php echo $row['id']; ?>">
+                                            <i class="bi bi-pencil"></i> View/Edit
+                                        </button>
+                                        <?php if (hasPermission('machines', 'delete')): ?>
+                                        <a href="?delete=<?php echo $row['id']; ?>" class="btn btn-sm btn-outline-danger machine-delete-btn" 
+                                           title="Delete Machine">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php 
+                                    endwhile;
+                                else:
+                                ?>
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <i class="bi bi-gear display-1 text-muted"></i>
+                                        <p class="mt-3">No machines found.</p>
+                                    </td>
+                                </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <?php if ($total_pages > 1): ?>
+                        <nav><ul class="pagination justify-content-center">
+                            <?php if ($page > 1): ?>
+                                <li class="page-item"><a class="page-link" href="?page=<?php echo ($page - 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>">Previous</a></li>
+                            <?php endif; ?>
+                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                <li class="page-item <?php echo ($i == $page) ? 'active' : ''; ?>"><a class="page-link" href="?page=<?php echo $i; ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>"><?php echo $i; ?></a></li>
+                            <?php endfor; ?>
+                            <?php if ($page < $total_pages): ?>
+                                <li class="page-item"><a class="page-link" href="?page=<?php echo ($page + 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>">Next</a></li>
+                            <?php endif; ?>
+                        </ul></nav>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -523,6 +602,182 @@ $total_pages = ceil($total_records / $records_per_page);
         padding-right: 40px;
     }
 </style>
+
+<script>
+// Global variable to store current machine ID for features
+let currentMachineId = null;
+
+// Function to load features for a machine
+function loadMachineFeatures(machineId) {
+    currentMachineId = machineId;
+    
+    if (!machineId) {
+        // Reset features display - no machine selected or creating new machine
+        $('#featuresTableBody').html(`
+            <tr>
+                <td colspan="3" class="text-center py-4">
+                    <i class="bi bi-gear display-1 text-muted"></i>
+                    <p class="mt-3">Select an existing machine to view/add features.</p>
+                </td>
+            </tr>
+        `);
+        $('#feature_name').prop('disabled', true);
+        $('#addFeatureBtn').prop('disabled', true);
+        $('#feature_name + small').text('Features can only be added to existing machines');
+        return;
+    }
+
+    // Enable feature input only for existing machines during editing
+    $('#feature_name').prop('disabled', false);
+    $('#addFeatureBtn').prop('disabled', false);
+    $('#feature_name + small').text('Add features for the selected machine');
+
+    // Load features via AJAX using jQuery
+    $.ajax({
+        url: 'ajax/get_machine_features.php',
+        type: 'GET',
+        data: { machine_id: machineId },
+        dataType: 'json',
+        success: function(data) {
+            let tbody = $('#featuresTableBody');
+            if (data.success && data.features.length > 0) {
+                let featuresHtml = data.features.map((feature, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><strong>${feature.feature_name}</strong></td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-danger delete-feature-btn" 
+                                    data-id="${feature.id}" data-name="${feature.feature_name}"
+                                    title="Delete Feature">
+                                <i class="bi bi-trash"></i> DELETE
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+                tbody.html(featuresHtml);
+            } else {
+                tbody.html(`
+                    <tr>
+                        <td colspan="3" class="text-center py-4">
+                            <i class="bi bi-gear display-1 text-muted"></i>
+                            <p class="mt-3">No features added yet for this machine.</p>
+                        </td>
+                    </tr>
+                `);
+            }
+        },
+        error: function() {
+            console.error('Error loading features');
+            $('#featuresTableBody').html(`
+                <tr>
+                    <td colspan="3" class="text-center py-4 text-danger">
+                        <i class="bi bi-exclamation-triangle display-1"></i>
+                        <p class="mt-3">Error loading features</p>
+                    </td>
+                </tr>
+            `);
+        }
+    });
+}
+
+// Function to add a feature
+function addMachineFeature() {
+    if (!currentMachineId) {
+        alert('Please select a machine first');
+        return;
+    }
+
+    const featureName = $('#feature_name').val().trim();
+    if (!featureName) {
+        alert('Please enter a feature name');
+        return;
+    }
+
+    // Show loading state
+    const addBtn = $('#addFeatureBtn');
+    const originalText = addBtn.html();
+    addBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Adding...');
+
+    // Add feature via AJAX using jQuery
+    $.ajax({
+        url: 'ajax/add_machine_feature.php',
+        type: 'POST',
+        data: {
+            machine_id: currentMachineId,
+            feature_name: featureName
+        },
+        dataType: 'json',
+        success: function(data) {
+            addBtn.prop('disabled', false).html(originalText);
+            if (data.success) {
+                $('#feature_name').val('');
+                loadMachineFeatures(currentMachineId);
+                alert('✓ ' + data.message);
+            } else {
+                alert('✗ ' + data.message);
+            }
+        },
+        error: function() {
+            addBtn.prop('disabled', false).html(originalText);
+            console.error('Error adding feature');
+            alert('✗ Error adding feature');
+        }
+    });
+}
+
+// jQuery Document Ready
+$(document).ready(function() {
+    
+    // Initially disable features section
+    loadMachineFeatures(null);
+    
+    // Add feature button click event
+    $('#addFeatureBtn').on('click', addMachineFeature);
+
+    // Feature name input enter key
+    $('#feature_name').on('keypress', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            addMachineFeature();
+        }
+    });
+
+    // Delete feature button click event (delegated for dynamic buttons)
+    $(document).on('click', '.delete-feature-btn', function() {
+        const featureId = $(this).data('id');
+        const featureName = $(this).data('name');
+        
+        if (!confirm(`Are you sure you want to delete the feature "${featureName}"?`)) {
+            return;
+        }
+
+        const deleteBtn = $(this);
+        const originalHtml = deleteBtn.html();
+        deleteBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
+
+        $.ajax({
+            url: 'ajax/delete_machine_feature.php',
+            type: 'GET',
+            data: { id: featureId },
+            dataType: 'json',
+            success: function(data) {
+                deleteBtn.prop('disabled', false).html(originalHtml);
+                if (data.success) {
+                    loadMachineFeatures(currentMachineId);
+                    alert('✓ ' + data.message);
+                } else {
+                    alert('✗ ' + data.message);
+                }
+            },
+            error: function() {
+                deleteBtn.prop('disabled', false).html(originalHtml);
+                console.error('Error deleting feature');
+                alert('✗ Error deleting feature');
+            }
+        });
+    });
+});
+</script>
 
 <script src="js/machines.js"></script>
 

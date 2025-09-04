@@ -32,7 +32,12 @@ $(document).ready(function() {
         }, delay);
     };
     
-    // Autocomplete for Machine Search
+        // Make functions globally available for feature management integration
+    window.fillFormWithMachineData = fillFormWithMachineData;
+    window.fillFormWithBasicData = fillFormWithBasicData;
+    window.resetForm = resetForm;
+
+    // File input change handler
     $('#machineSearch').autocomplete({
         source: function(request, response) {
             $.ajax({
@@ -163,6 +168,11 @@ $(document).ready(function() {
         $('#updateBtn').css('display', 'none');
         $('#formTitle').text('Machine Details - ' + machine.name);
         
+        // Load machine features when viewing machine details
+        if (typeof loadMachineFeatures === 'function') {
+            loadMachineFeatures(machine.id);
+        }
+        
         $('html, body').animate({ scrollTop: $('#machineForm').offset().top - 100 }, 500);
     }
 
@@ -181,6 +191,11 @@ $(document).ready(function() {
         $('#deleteBtn').css('display', 'block');
         $('#updateBtn').css('display', 'none');
         $('#formTitle').text('Machine Details - ' + machine.name);
+        
+        // Load machine features when viewing machine details
+        if (typeof loadMachineFeatures === 'function') {
+            loadMachineFeatures(machine.id);
+        }
         
         $('html, body').animate({ scrollTop: $('#machineForm').offset().top - 100 }, 500);
     }
@@ -211,6 +226,12 @@ $(document).ready(function() {
         $('#editBtn').css('display', 'none');
         $('#updateBtn').css('display', 'block');
         $('#formAction').val('update_machine');
+        
+        // Enable features section when editing a machine
+        const machineId = $('#machineId').val();
+        if (machineId && typeof loadMachineFeatures === 'function') {
+            loadMachineFeatures(machineId);
+        }
     });
 
     $('#deleteBtn').on('click', function() {
@@ -305,6 +326,11 @@ $(document).ready(function() {
         $('#updateBtn').css('display', 'none');
         $('#deleteBtn').css('display', 'none');
         $('#formTitle').text('Create Machine');
+        
+        // Reset features section when creating new machine
+        if (typeof loadMachineFeatures === 'function') {
+            loadMachineFeatures(null);
+        }
     }
 
     // Form validation and submission
@@ -381,7 +407,10 @@ $(document).ready(function() {
         });
     });
 
-    // File input change handler
+    // Make functions globally available for feature management integration
+    window.fillFormWithMachineData = fillFormWithMachineData;
+    window.fillFormWithBasicData = fillFormWithBasicData;
+    window.resetForm = resetForm;
     $('#attachment').on('change', function() {
         const file = this.files[0];
         if (file) {

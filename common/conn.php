@@ -18,21 +18,31 @@ if (session_status() == PHP_SESSION_NONE) {
 
 
 // Base URL Configuration
-$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-$base_url = $protocol . $_SERVER['HTTP_HOST'] . dirname($_SERVER['SCRIPT_NAME']);
+$protocol = "http://"; // Default
+$base_url = "";
 
-// Clean up base URL for different directory depths
-$current_dir = dirname($_SERVER['SCRIPT_NAME']);
-if (strpos($current_dir, '/auth') !== false || 
-    strpos($current_dir, '/quotations') !== false || 
-    strpos($current_dir, '/email') !== false ||
-    strpos($current_dir, '/ajax') !== false) {
-    // If in subdirectory, go up one level
-    $base_url = $protocol . $_SERVER['HTTP_HOST'] . dirname(dirname($_SERVER['SCRIPT_NAME']));
+// Only set base URL if running in web environment
+if (isset($_SERVER['HTTP_HOST']) && isset($_SERVER['SCRIPT_NAME'])) {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || 
+                (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443)) ? "https://" : "http://";
+    $base_url = $protocol . $_SERVER['HTTP_HOST'] . dirname($_SERVER['SCRIPT_NAME']);
+
+    // Clean up base URL for different directory depths
+    $current_dir = dirname($_SERVER['SCRIPT_NAME']);
+    if (strpos($current_dir, '/auth') !== false || 
+        strpos($current_dir, '/quotations') !== false || 
+        strpos($current_dir, '/email') !== false ||
+        strpos($current_dir, '/ajax') !== false) {
+        // If in subdirectory, go up one level
+        $base_url = $protocol . $_SERVER['HTTP_HOST'] . dirname(dirname($_SERVER['SCRIPT_NAME']));
+    }
+
+    // Remove trailing slash
+    $base_url = rtrim($base_url, '/');
+} else {
+    // CLI or test environment
+    $base_url = "http://localhost";
 }
-
-// Remove trailing slash
-$base_url = rtrim($base_url, '/');
 
 // Define global constants
 define('BASE_URL', $base_url);
