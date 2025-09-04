@@ -1,11 +1,8 @@
 <?php
-
-
 include '../header.php';
 checkLogin();
 include '../menu.php';
 
-$message = '';
 $prefix = "PO-";
 
 // Get initial PO number
@@ -15,49 +12,182 @@ $initial_po_number = generatePurchaseOrderNumber($conn, $prefix);
 if ($_POST) {
     if (isset($_POST['action'])) {
         if ($_POST['action'] === 'create_po' && hasPermission('purchase_orders', 'create')) {
-            $po_data = [
-                'po_number' => sanitizeInput($_POST['po_number']),
-                'vendor_id' => intval($_POST['vendor_id'] ?? 0),
-                'sales_order_id' => intval($_POST['sales_order_id'] ?? 0),
-                'po_date' => sanitizeInput($_POST['po_date']),
-                'due_date' => sanitizeInput($_POST['due_date']),
-                'status' => sanitizeInput($_POST['status']),
-                'notes' => sanitizeInput($_POST['notes']),
-                'total_amount' => floatval($_POST['total_amount'] ?? 0),
-                'discount_percentage' => floatval($_POST['discount_percentage'] ?? 0),
-                'discount_amount' => floatval($_POST['discount_amount'] ?? 0),
-                'final_total' => floatval($_POST['total_amount'] ?? 0) - floatval($_POST['discount_amount'] ?? 0),
-                'created_by' => $_SESSION['user_id'],
-                'items' => $_POST['items'] ?? []
-            ];
+            $po_number = sanitizeInput($_POST['po_number']);
+            $vendor_id = intval($_POST['vendor_id'] ?? 0);
+            $sales_order_id = intval($_POST['sales_order_id'] ?? 0);
+            $po_date = sanitizeInput($_POST['po_date']);
+            $due_date = sanitizeInput($_POST['due_date']);
+            $status = sanitizeInput($_POST['status']);
+            $notes = sanitizeInput($_POST['notes']);
+            $total_amount = floatval($_POST['total_amount'] ?? 0);
+            $discount_percentage = floatval($_POST['discount_percentage'] ?? 0);
+            $discount_amount = floatval($_POST['discount_amount'] ?? 0);
+            $final_total = $total_amount - $discount_amount;
+
+            // Validate vendor
+            $vendor_name = '';
+            if ($vendor_id > 0) {
+                $check_vendor = $conn->query("SELECT company_name FROM customers WHERE id = $vendor_id AND (entity_type = 'vendor' OR entity_type = 'both')");
+                if ($check_vendor->num_rows > 0) {
+                    $vendor_name = $check_vendor->fetch_assoc()['company_name'];
+                } else {
+                    redirectWithError('Selected vendor does not exist or is not valid.');
+                }
+            } else {
+                redirectWithError('Please select a valid vendor.');
+            }
+
+            // Validate sales order if provided
+            if (!empty($sales_order_id)) {
+                $check_so = $conn->query("SELECT id, so_number FROM sales_orders WHERE id = $sales_order_id");
+                if ($check_so->num_rows === 0) {
+                    redirectWithError('Selected sales order does not exist.');
+                }
+            }
+
+            // Start transaction
+            $conn->begin_transaction();
             
-            $result = createPurchaseOrder($conn, $po_data);
-            $message = $result['success'] ? showSuccess($result['message']) : showError($result['message']);
+            try {
+                $sql = "INSERT INTO purchase_orders (po_number, vendor_name, vendor_id, sales_order_id, po_date, due_date, status, notes, total_amount, discount_percentage, discount_amount, final_total, created_by) 
+                        VALUES ('$po_number', '$vendor_name', $vendor_id, " . ($sales_order_id ?: 'NULL') . ", '$po_date', " . ($due_date ? "'$due_date'" : "NULL") . ", '$status', '$notes', $total_amount, $discount_percentage, $discount_amount, $final_total, {$_SESSION['user_id']})";
+
+                if (!$conn->query($sql)) {
+                    throw new Exception('Error creating purchase order: ' . $conn->error);
+                }
+                
+                $po_id = $conn->insert_id;
+
+                // Handle PO items
+                if (isset($_POST['items']) && is_array($_POST['items'])) {
+                    foreach ($_POST['items'] as $item) {
+                        $item_type = sanitizeInput($item['type']);
+                        $item_id = intval($item['item_id']);
+                        $item_name = sanitizeInput($item['name']);
+                        $description = sanitizeInput($item['description']);
+                        $hsn_code = sanitizeInput($item['hsn_code'] ?? '');
+                        $quantity = intval($item['quantity']);
+                        $unit_price = floatval($item['unit_price']);
+                        $total_price = floatval($item['total_price']);
+
+                        $item_sql = "INSERT INTO purchase_order_items (po_id, item_type, item_id, item_name, description, hsn_code, quantity, unit_price, total_price) 
+                                     VALUES ($po_id, '$item_type', $item_id, '$item_name', '$description', '$hsn_code', $quantity, $unit_price, $total_price)";
+                        
+                        if (!$conn->query($item_sql)) {
+                            throw new Exception("Error saving item: " . $conn->error);
+                        }
+                    }
+                }
+
+                // Commit transaction
+                $conn->commit();
+                redirectWithSuccess('Purchase Order created successfully!');
+                
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                redirectWithError($e->getMessage());
+            }
             
         } elseif ($_POST['action'] === 'update_po' && hasPermission('purchase_orders', 'edit')) {
             $po_id = intval($_POST['id']);
+            
+            // Check if PO is already used in sales invoice
             $invCheck = $conn->query("SELECT id FROM sales_invoices WHERE purchase_order_id = $po_id LIMIT 1");
             if ($invCheck && $invCheck->num_rows > 0) {
-                $message = showError('This Purchase Order is already used in a Sales Invoice and cannot be edited.');
-                exit;
-            } 
-            $po_data = [
-                'po_number' => sanitizeInput($_POST['po_number']),
-                'vendor_id' => intval($_POST['vendor_id'] ?? 0),
-                'sales_order_id' => intval($_POST['sale_order_id'] ?? 0),
-                'po_date' => sanitizeInput($_POST['po_date']),
-                'due_date' => sanitizeInput($_POST['due_date']),
-                'status' => 'sent',
-                'notes' => sanitizeInput($_POST['notes']),
-                'total_amount' => floatval($_POST['total_amount'] ?? 0),
-                'discount_percentage' => floatval($_POST['discount_percentage'] ?? 0),
-                'discount_amount' => floatval($_POST['discount_amount'] ?? 0),
-                'final_total' => floatval($_POST['total_amount'] ?? 0) - floatval($_POST['discount_amount'] ?? 0),
-                'items' => $_POST['items'] ?? []
-            ];
+                redirectWithError('This Purchase Order is already used in a Sales Invoice and cannot be edited.');
+            }
             
-            $result = updatePurchaseOrder($conn, $po_id, $po_data);
-            $message = $result['success'] ? showSuccess($result['message']) : showError($result['message']);
+            $po_number = sanitizeInput($_POST['po_number']);
+            $vendor_id = intval($_POST['vendor_id'] ?? 0);
+            $sales_order_id = intval($_POST['sales_order_id'] ?? 0);
+            $po_date = sanitizeInput($_POST['po_date']);
+            $due_date = sanitizeInput($_POST['due_date']);
+            $status = sanitizeInput($_POST['status']);
+            $notes = sanitizeInput($_POST['notes']);
+            $total_amount = floatval($_POST['total_amount'] ?? 0);
+            $discount_percentage = floatval($_POST['discount_percentage'] ?? 0);
+            $discount_amount = floatval($_POST['discount_amount'] ?? 0);
+            $final_total = $total_amount - $discount_amount;
+
+            // Validate vendor
+            $vendor_name = '';
+            if ($vendor_id > 0) {
+                $check_vendor = $conn->query("SELECT company_name FROM customers WHERE id = $vendor_id AND (entity_type = 'vendor' OR entity_type = 'both')");
+                if ($check_vendor->num_rows > 0) {
+                    $vendor_name = $check_vendor->fetch_assoc()['company_name'];
+                } else {
+                    redirectWithError('Selected vendor does not exist or is not valid.');
+                }
+            } else {
+                redirectWithError('Please select a valid vendor.');
+            }
+
+            // Validate sales order if provided
+            if (!empty($sales_order_id)) {
+                $check_so = $conn->query("SELECT id, so_number FROM sales_orders WHERE id = $sales_order_id");
+                if ($check_so->num_rows === 0) {
+                    redirectWithError('Selected sales order does not exist.');
+                }
+            }
+
+            // Start transaction
+            $conn->begin_transaction();
+            
+            try {
+                $sql = "UPDATE purchase_orders SET 
+                        po_number = '$po_number',
+                        vendor_name = '$vendor_name',
+                        vendor_id = $vendor_id,
+                        sales_order_id = " . ($sales_order_id ?: 'NULL') . ",
+                        po_date = '$po_date',
+                        due_date = " . ($due_date ? "'$due_date'" : "NULL") . ",
+                        status = '$status',
+                        notes = '$notes',
+                        total_amount = $total_amount,
+                        discount_percentage = $discount_percentage,
+                        discount_amount = $discount_amount,
+                        final_total = $final_total
+                        WHERE id = $po_id";
+
+                if (!$conn->query($sql)) {
+                    throw new Exception('Error updating purchase order: ' . $conn->error);
+                }
+                
+                // Delete existing items and insert new ones
+                if (!$conn->query("DELETE FROM purchase_order_items WHERE po_id = $po_id")) {
+                    throw new Exception('Error deleting existing items: ' . $conn->error);
+                }
+
+                if (isset($_POST['items']) && is_array($_POST['items'])) {
+                    foreach ($_POST['items'] as $item) {
+                        $item_type = sanitizeInput($item['type']);
+                        $item_id = intval($item['item_id']);
+                        $item_name = sanitizeInput($item['name']);
+                        $description = sanitizeInput($item['description']);
+                        $hsn_code = sanitizeInput($item['hsn_code'] ?? '');
+                        $quantity = intval($item['quantity']);
+                        $unit_price = floatval($item['unit_price']);
+                        $total_price = floatval($item['total_price']);
+
+                        $item_sql = "INSERT INTO purchase_order_items (po_id, item_type, item_id, item_name, description, hsn_code, quantity, unit_price, total_price) 
+                                     VALUES ($po_id, '$item_type', $item_id, '$item_name', '$description', '$hsn_code', $quantity, $unit_price, $total_price)";
+                        
+                        if (!$conn->query($item_sql)) {
+                            throw new Exception("Error saving item: " . $conn->error);
+                        }
+                    }
+                }
+
+                // Commit transaction
+                $conn->commit();
+                redirectWithSuccess('Purchase Order updated successfully!');
+                
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                redirectWithError($e->getMessage());
+            }
         }
     }
 }
@@ -65,16 +195,51 @@ if ($_POST) {
 // Handle delete
 if (isset($_GET['delete'])) {
     if (!hasPermission('purchase_orders', 'delete')) {
-        $message = showError("You don't have permission to delete purchase orders!");
+        redirectWithError("You don't have permission to delete purchase orders!");
     } else {
         $id = (int)$_GET['delete'];
+        
+        // Check if PO is already used in sales invoice
         $invCheck = $conn->query("SELECT id FROM sales_invoices WHERE purchase_order_id = $id LIMIT 1");
         if ($invCheck && $invCheck->num_rows > 0) {
-            $message = showError("This Purchase Order is already used in a Sales Invoice and cannot be deleted.");
-        exit;
+            redirectWithError("This Purchase Order is already used in a Sales Invoice and cannot be deleted.");
         }
-        $result = deletePurchaseOrder($conn, $id);
-        $message = $result['success'] ? showSuccess($result['message']) : showError($result['message']);
+        
+        // Get PO number for confirmation message
+        $po_sql = "SELECT po_number FROM purchase_orders WHERE id = $id";
+        $po_result = $conn->query($po_sql);
+        $po_number = '';
+        if ($po_result && $po_row = $po_result->fetch_assoc()) {
+            $po_number = $po_row['po_number'];
+        }
+        
+        // Start transaction
+        $conn->begin_transaction();
+        
+        try {
+            // Delete PO items first
+            if (!$conn->query("DELETE FROM purchase_order_items WHERE po_id = $id")) {
+                throw new Exception("Error deleting purchase order items: " . $conn->error);
+            }
+            
+            // Delete purchase order
+            $sql = "DELETE FROM purchase_orders WHERE id = $id";
+            if (!$conn->query($sql)) {
+                throw new Exception("Error deleting purchase order: " . $conn->error);
+            }
+            
+            if ($conn->affected_rows > 0) {
+                $conn->commit();
+                redirectWithSuccess("Purchase Order '$po_number' deleted successfully!");
+            } else {
+                $conn->rollback();
+                redirectWithError("Purchase Order not found or already deleted!");
+            }
+            
+        } catch (Exception $e) {
+            $conn->rollback();
+            redirectWithError($e->getMessage());
+        }
     }
 }
 
@@ -120,7 +285,7 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
         </div>
     </div>
     
-    <?php echo $message; ?>
+    <?php echo getAllMessages(); ?>
     
     <!-- Search Box -->
     <div class="row mb-4">
@@ -241,7 +406,11 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
                         <div class="mb-3">
                             <label class="form-label">Items List</label>
                             <div id="poItemsList" class="border rounded p-2" style="min-height: 200px; max-height: 300px; overflow-y: auto; background-color: #f8f9fa;">
-                                <!-- Items will be rendered here by JavaScript -->
+                                <div class="text-muted text-center py-4">
+                                    <i class="bi bi-box fs-2"></i><br>
+                                    <strong>No items added yet</strong><br>
+                                    <small>Use the buttons above to add machines and spare parts</small>
+                                </div>
                             </div>
                         </div>
 
@@ -262,8 +431,8 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
                                 </div>
                             </div>
                             <div class="mb-0">
-                                <label for="grand_total" class="form-label"><strong>Grand Total (₹)</strong></label>
-                                <input type="number" class="form-control fw-bold text-success fs-5" name="grand_total" id="grand_total" step="0.01" readonly style="background-color:#fff; border:2px solid #28a745;">
+                                <label for="final_total" class="form-label"><strong>Final Total (₹)</strong></label>
+                                <input type="number" class="form-control fw-bold text-success fs-5" name="final_total" id="final_total" step="0.01" readonly style="background-color:#fff; border:2px solid #28a745;">
                             </div>
                         </div>
                     </div>
@@ -336,6 +505,9 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
                                     <td colspan="6" class="text-center py-4">
                                         <i class="bi bi-inbox display-1 text-muted"></i>
                                         <p class="mt-3">No purchase orders found.</p>
+                                        <?php if (!empty($search)): ?>
+                                            <a href="purchase_orders.php" class="btn btn-outline-primary">Clear Search</a>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                                 <?php endif; ?>

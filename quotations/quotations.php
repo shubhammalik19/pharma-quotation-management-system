@@ -5,7 +5,6 @@ include '../header.php';
 checkLogin();
 include '../menu.php';
 
-$message = '';
 $prefix = "QUO-";
 
 function generateQuotationNumber($conn)
@@ -51,24 +50,32 @@ if ($_POST) {
                 if ($check_customer->num_rows > 0) {
                     $customer_name = $check_customer->fetch_assoc()['company_name'];
                 } else {
-                    $message = showError('Selected customer does not exist or is not valid.');
+                    redirectWithError('Selected customer does not exist or is not valid.');
                 }
             } else {
-                $message = showError('Please select a valid customer.');
+                redirectWithError('Please select a valid customer.');
             }
             
             if (empty($message)) {
-                // Extract max_no from quotation_number for database
-                $max_no = 0;
-                if (preg_match('/(\d+)$/', $quotation_number, $matches)) {
-                    $max_no = (int)$matches[1];
-                }
+                // Start transaction
+                $conn->begin_transaction();
                 
-                $sql = "INSERT INTO quotations (prefix, max_no, quotation_number, customer_id, quotation_date, valid_until, total_amount, discount_percentage, discount_amount, grand_total, status, enquiry_ref, prepared_by, notes) 
-                        VALUES ('$prefix', $max_no, '$quotation_number', $customer_id, '$quotation_date', '$valid_until', $total_amount, $discount_percentage, $discount_amount, $grand_total, '$status', '$enquiry_ref', '$prepared_by', '$notes')";
-                
-                if ($conn->query($sql)) {
+                try {
+                    // Extract max_no from quotation_number for database
+                    $max_no = 0;
+                    if (preg_match('/(\d+)$/', $quotation_number, $matches)) {
+                        $max_no = (int)$matches[1];
+                    }
+                    
+                    $sql = "INSERT INTO quotations (prefix, max_no, quotation_number, customer_id, quotation_date, valid_until, total_amount, discount_percentage, discount_amount, grand_total, status, enquiry_ref, prepared_by, notes) 
+                            VALUES ('$prefix', $max_no, '$quotation_number', $customer_id, '$quotation_date', '$valid_until', $total_amount, $discount_percentage, $discount_amount, $grand_total, '$status', '$enquiry_ref', '$prepared_by', '$notes')";
+                    
+                    if (!$conn->query($sql)) {
+                        throw new Exception('Error creating quotation: ' . $conn->error);
+                    }
+                    
                     $quotation_id = $conn->insert_id;
+                    
                     // Handle quotation items
                     if (isset($_POST['items']) && is_array($_POST['items'])) {
                         foreach ($_POST['items'] as $item) {
@@ -83,15 +90,24 @@ if ($_POST) {
                             
                             $item_sql = "INSERT INTO quotation_items (quotation_id, item_type, item_id, description, specifications, quantity, unit_price, total_price, sl_no) 
                                          VALUES ($quotation_id, '$item_type', $item_id, '$description', '$specifications', $quantity, $rate, $amount, $sl_no)";
+                            
                             if (!$conn->query($item_sql)) {
-                                $message .= showError("Error saving item: " . $conn->error);
+                                throw new Exception("Error saving item: " . $conn->error);
                             }
                         }
                     }
-                    $message = showSuccess('Quotation created successfully!');
-                } else {
-                    $message = showError('Error creating quotation: ' . $conn->error);
+                    
+                    // Commit transaction
+                    $conn->commit();
+                    redirectWithSuccess('Quotation created successfully!');
+                    
+                } catch (Exception $e) {
+                    // Rollback transaction on error
+                    $conn->rollback();
+                    redirectWithError($e->getMessage());
                 }
+            } else {
+                redirectWithError('Please fix the validation errors.');
             }
         } elseif ($_POST['action'] === 'update_quotation' && hasPermission('quotations', 'edit')) {
             $quotation_id = intval($_POST['id']);
@@ -110,8 +126,9 @@ if ($_POST) {
             
             $lockCheck = $conn->query("SELECT id FROM sales_orders WHERE quotation_id = $quotation_id LIMIT 1");
             if ($lockCheck && $lockCheck->num_rows > 0) {
-                $message = showError('This quotation has already gone into a Sales Order. Cannot edit.');
+                redirectWithError('This quotation has already gone into a Sales Order. Cannot edit.');
             }
+            
             // Validate customer
             $customer_name = '';
             if ($customer_id > 0) {
@@ -119,13 +136,16 @@ if ($_POST) {
                 if ($check_customer->num_rows > 0) {
                     $customer_name = $check_customer->fetch_assoc()['company_name'];
                 } else {
-                    $message = showError('Selected customer does not exist or is not valid.');
+                    redirectWithError('Selected customer does not exist or is not valid.');
                 }
             } else {
-                $message = showError('Please select a valid customer.');
+                redirectWithError('Please select a valid customer.');
             }
             
-            if (empty($message)) {
+            // Start transaction
+            $conn->begin_transaction();
+            
+            try {
                 $sql = "UPDATE quotations SET 
                         quotation_number = '$quotation_number', 
                         customer_id = $customer_id, 
@@ -141,31 +161,43 @@ if ($_POST) {
                         notes = '$notes' 
                         WHERE id = $quotation_id";
                 
-                if ($conn->query($sql)) {
-                    // Delete existing items and insert new ones
-                    $conn->query("DELETE FROM quotation_items WHERE quotation_id = $quotation_id");
-                    if (isset($_POST['items']) && is_array($_POST['items'])) {
-                        foreach ($_POST['items'] as $item) {
-                            $item_type = sanitizeInput($item['type']);
-                            $item_id = intval($item['item_id']);
-                            $description = sanitizeInput($item['description']);
-                            $specifications = sanitizeInput($item['specifications'] ?? '');
-                            $quantity = intval($item['quantity']);
-                            $rate = floatval($item['unit_price']);
-                            $amount = floatval($item['total_price']);
-                            $sl_no = intval($item['sl_no'] ?? 1);
-                            
-                            $item_sql = "INSERT INTO quotation_items (quotation_id, item_type, item_id, description, specifications, quantity, unit_price, total_price, sl_no) 
-                                         VALUES ($quotation_id, '$item_type', $item_id, '$description', '$specifications', $quantity, $rate, $amount, $sl_no)";
-                            if (!$conn->query($item_sql)) {
-                                $message .= showError("Error saving item: " . $conn->error);
-                            }
+                if (!$conn->query($sql)) {
+                    throw new Exception('Error updating quotation: ' . $conn->error);
+                }
+                
+                // Delete existing items and insert new ones
+                if (!$conn->query("DELETE FROM quotation_items WHERE quotation_id = $quotation_id")) {
+                    throw new Exception('Error deleting existing items: ' . $conn->error);
+                }
+                
+                if (isset($_POST['items']) && is_array($_POST['items'])) {
+                    foreach ($_POST['items'] as $item) {
+                        $item_type = sanitizeInput($item['type']);
+                        $item_id = intval($item['item_id']);
+                        $description = sanitizeInput($item['description']);
+                        $specifications = sanitizeInput($item['specifications'] ?? '');
+                        $quantity = intval($item['quantity']);
+                        $rate = floatval($item['unit_price']);
+                        $amount = floatval($item['total_price']);
+                        $sl_no = intval($item['sl_no'] ?? 1);
+                        
+                        $item_sql = "INSERT INTO quotation_items (quotation_id, item_type, item_id, description, specifications, quantity, unit_price, total_price, sl_no) 
+                                     VALUES ($quotation_id, '$item_type', $item_id, '$description', '$specifications', $quantity, $rate, $amount, $sl_no)";
+                        
+                        if (!$conn->query($item_sql)) {
+                            throw new Exception("Error saving item: " . $conn->error);
                         }
                     }
-                    $message = showSuccess('Quotation updated successfully!');
-                } else {
-                    $message = showError('Error updating quotation: ' . $conn->error);
                 }
+                
+                // Commit transaction
+                $conn->commit();
+                redirectWithSuccess('Quotation updated successfully!');
+                
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                redirectWithError($e->getMessage());
             }
         }
     }
@@ -174,22 +206,52 @@ if ($_POST) {
 // Handle delete
 if (isset($_GET['delete'])) {
     if (!hasPermission('quotations', 'delete')) {
-        $message = showError("You don't have permission to delete quotations!");
+        redirectWithError("You don't have permission to delete quotations!");
     } else {
         $id = (int)$_GET['delete'];
-        $lockCheck = $conn->query("SELECT id FROM sales_orders WHERE quotation_id = $id LIMIT 1");
-        if ($lockCheck && $lockCheck->num_rows > 0) {
-            $message = showError('This quotation has already gone into a Sales Order. Cannot edit.');
-            exit;
+        
+        // Check for dependencies before deletion
+        $dependencies = checkQuotationDependencies($conn, $id);
+        
+        if (!empty($dependencies)) {
+            $dependencyList = implode(', ', $dependencies);
+            redirectWithError("Cannot delete quotation! This quotation is referenced in: " . $dependencyList . ". Please remove these references first.");
         }
         
-       
-        $conn->query("DELETE FROM quotation_items WHERE quotation_id = $id");
-        $sql = "DELETE FROM quotations WHERE id = $id";
-        if ($conn->query($sql)) {
-            $message = showSuccess("Quotation deleted successfully!");
-        } else {
-            $message = showError("Error deleting quotation: " . $conn->error);
+        // Get quotation number for confirmation message
+        $quotation_sql = "SELECT quotation_number FROM quotations WHERE id = $id";
+        $quotation_result = $conn->query($quotation_sql);
+        $quotation_number = '';
+        if ($quotation_result && $quotation_row = $quotation_result->fetch_assoc()) {
+            $quotation_number = $quotation_row['quotation_number'];
+        }
+        
+        // Start transaction
+        $conn->begin_transaction();
+        
+        try {
+            // Delete quotation items first
+            if (!$conn->query("DELETE FROM quotation_items WHERE quotation_id = $id")) {
+                throw new Exception("Error deleting quotation items: " . $conn->error);
+            }
+            
+            // Delete quotation
+            $sql = "DELETE FROM quotations WHERE id = $id";
+            if (!$conn->query($sql)) {
+                throw new Exception("Error deleting quotation: " . $conn->error);
+            }
+            
+            if ($conn->affected_rows > 0) {
+                $conn->commit();
+                redirectWithSuccess("Quotation '$quotation_number' deleted successfully!");
+            } else {
+                $conn->rollback();
+                redirectWithError("Quotation not found or already deleted!");
+            }
+            
+        } catch (Exception $e) {
+            $conn->rollback();
+            redirectWithError($e->getMessage());
         }
     }
 }
@@ -234,7 +296,7 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
         </div>
     </div>
     
-    <?php echo $message; ?>
+    <?php echo getAllMessages(); ?>
     
     <!-- Search Box -->
     <div class="row mb-4">

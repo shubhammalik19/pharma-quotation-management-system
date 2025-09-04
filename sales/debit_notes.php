@@ -3,7 +3,6 @@ include '../header.php';
 checkLogin();
 include '../menu.php';
 
-$message = '';
 $prefix = "DN-";
 
 // Generate Debit Note Number
@@ -45,27 +44,38 @@ if ($_POST) {
             if ($vendor_id > 0) {
                 $check_vendor = $conn->query("SELECT id, company_name, address, gst_no FROM customers WHERE id = $vendor_id AND (entity_type = 'vendor' OR entity_type = 'both')");
                 if ($check_vendor->num_rows === 0) {
-                    $message = showError('Selected vendor does not exist or is not valid.');
+                    redirectWithError('Selected vendor does not exist or is not valid.');
                 } else {
                     $vendor_data = $check_vendor->fetch_assoc();
                     $vendor_name = $vendor_data['company_name'];
                     $vendor_address = $vendor_data['address'] ?? '';
                     $vendor_gstin = $vendor_data['gst_no'] ?? '';
                 }
-            } else {
-                $message = showError('Please select a valid vendor.');
+            }
+            // Allow manual vendor names when vendor_id is 0
+            
+            if (empty($vendor_name)) {
+                redirectWithError('Please enter vendor name.');
             }
             
-            if (empty($message)) {
+            // Start transaction
+            $conn->begin_transaction();
+            
+            try {
                 $sql = "INSERT INTO debit_notes (debit_note_number, vendor_name, vendor_address, vendor_gstin, original_invoice, debit_date, total_amount, reason, status, created_by) 
                         VALUES ('$dn_number', '$vendor_name', '$vendor_address', '$vendor_gstin', '$original_invoice', '$debit_date', $total_amount, '$reason', '$status', {$_SESSION['user_id']})";
                 
                 if ($conn->query($sql)) {
-                    $message = showSuccess('Debit Note created successfully!');
+                    $conn->commit();
+                    redirectWithSuccess('Debit Note created successfully!');
                 } else {
-                    $message = showError('Error creating debit note: ' . $conn->error);
+                    throw new Exception($conn->error);
                 }
+            } catch (Exception $e) {
+                $conn->rollback();
+                redirectWithError('Error creating debit note: ' . $e->getMessage());
             }
+            
         } elseif ($_POST['action'] === 'update_dn' && hasPermission('debit_notes', 'edit')) {
             $dn_id = intval($_POST['id']);
             $dn_number = sanitizeInput($_POST['dn_number']);
@@ -84,18 +94,24 @@ if ($_POST) {
             if ($vendor_id > 0) {
                 $check_vendor = $conn->query("SELECT id, company_name, address, gst_no FROM customers WHERE id = $vendor_id AND (entity_type = 'vendor' OR entity_type = 'both')");
                 if ($check_vendor->num_rows === 0) {
-                    $message = showError('Selected vendor does not exist or is not valid.');
+                    redirectWithError('Selected vendor does not exist or is not valid.');
                 } else {
                     $vendor_data = $check_vendor->fetch_assoc();
                     $vendor_name = $vendor_data['company_name'];
                     $vendor_address = $vendor_data['address'] ?? '';
                     $vendor_gstin = $vendor_data['gst_no'] ?? '';
                 }
-            } else {
-                $message = showError('Please select a valid vendor.');
+            }
+            // Allow manual vendor names when vendor_id is 0
+            
+            if (empty($vendor_name)) {
+                redirectWithError('Please enter vendor name.');
             }
             
-            if (empty($message)) {
+            // Start transaction
+            $conn->begin_transaction();
+            
+            try {
                 $sql = "UPDATE debit_notes SET 
                         debit_note_number = '$dn_number', 
                         vendor_name = '$vendor_name', 
@@ -109,10 +125,14 @@ if ($_POST) {
                         WHERE id = $dn_id";
                 
                 if ($conn->query($sql)) {
-                    $message = showSuccess('Debit Note updated successfully!');
+                    $conn->commit();
+                    redirectWithSuccess('Debit Note updated successfully!');
                 } else {
-                    $message = showError('Error updating debit note: ' . $conn->error);
+                    throw new Exception($conn->error);
                 }
+            } catch (Exception $e) {
+                $conn->rollback();
+                redirectWithError('Error updating debit note: ' . $e->getMessage());
             }
         }
     }
@@ -121,15 +141,24 @@ if ($_POST) {
 // Handle delete
 if (isset($_GET['delete'])) {
     if (!hasPermission('debit_notes', 'delete')) {
-        $message = showError("You don't have permission to delete debit notes!");
+        redirectWithError("You don't have permission to delete debit notes!");
     } else {
         $id = (int)$_GET['delete'];
         
-        $sql = "DELETE FROM debit_notes WHERE id = $id";
-        if ($conn->query($sql)) {
-            $message = showSuccess("Debit Note deleted successfully!");
-        } else {
-            $message = showError("Error deleting debit note: " . $conn->error);
+        // Start transaction
+        $conn->begin_transaction();
+        
+        try {
+            $sql = "DELETE FROM debit_notes WHERE id = $id";
+            if ($conn->query($sql)) {
+                $conn->commit();
+                redirectWithSuccess("Debit Note deleted successfully!");
+            } else {
+                throw new Exception($conn->error);
+            }
+        } catch (Exception $e) {
+            $conn->rollback();
+            redirectWithError("Error deleting debit note: " . $e->getMessage());
         }
     }
 }
@@ -171,7 +200,7 @@ $dn_result = $conn->query($dn_sql);
         </div>
     </div>
     
-    <?php echo $message; ?>
+    <?php echo getAllMessages(); ?>
     
     <!-- Search Box -->
     <div class="row mb-3">

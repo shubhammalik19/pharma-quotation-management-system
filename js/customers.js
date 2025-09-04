@@ -11,6 +11,13 @@ function esc(t){ if(!t) return ''; const m={'&':'&amp;','<':'&lt;','>':'&gt;','"
 
 $(document).ready(function() {
     
+    // Function to reload page after actions (for manual use if needed)
+    window.reloadAfterAction = function(delay = 1500) {
+        setTimeout(function() {
+            window.location.reload();
+        }, delay);
+    };
+    
     // Autocomplete for Customer Search
     $('#customerSearch').autocomplete({
         source: function(request, response) {
@@ -218,8 +225,56 @@ $(document).ready(function() {
     $('#deleteBtn').on('click', function() {
         const customerId = $('#customerId').val();
         const companyName = $('#company_name').val();
-        if (customerId && confirm('Are you sure you want to delete Customer "' + companyName + '"?')) {
-            window.location.href = 'customers.php?delete=' + customerId;
+        const deleteBtn = $(this);
+        
+        if (customerId) {
+            // Show loading state
+            deleteBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Checking...');
+            
+            // Check dependencies via AJAX
+            $.ajax({
+                url: 'ajax/check_customer_dependencies.php',
+                type: 'GET',
+                data: { id: customerId },
+                dataType: 'json',
+                success: function(response) {
+                    deleteBtn.prop('disabled', false).html('<i class="bi bi-trash"></i> Delete');
+                    
+                    if (response.success) {
+                        if (response.can_delete) {
+                            // Safe to delete
+                            const confirmMessage = `Are you sure you want to delete ${response.entity_type} "${response.customer_name}"?\n\n` +
+                                                 `This action cannot be undone!`;
+                            
+                            if (confirm(confirmMessage)) {
+                                deleteBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Deleting...');
+                                window.location.href = 'customers.php?delete=' + customerId;
+                            }
+                        } else {
+                            // Has dependencies
+                            const dependencyList = response.dependencies.join(', ');
+                            alert(`Cannot delete ${response.entity_type} "${response.customer_name}"!\n\n` +
+                                  `This customer is referenced in:\n${dependencyList}\n\n` +
+                                  `Please remove these references first before deleting the customer.`);
+                        }
+                    } else {
+                        alert('Error checking dependencies: ' + response.message);
+                    }
+                },
+                error: function() {
+                    deleteBtn.prop('disabled', false).html('<i class="bi bi-trash"></i> Delete');
+                    
+                    // Fallback to basic confirmation
+                    const confirmMessage = `Are you sure you want to delete Customer "${companyName}"?\n\n` +
+                                         `This will check for any related records and prevent deletion if dependencies exist.\n\n` +
+                                         `This action cannot be undone!`;
+                    
+                    if (confirm(confirmMessage)) {
+                        deleteBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Deleting...');
+                        window.location.href = 'customers.php?delete=' + customerId;
+                    }
+                }
+            });
         }
     });
 
@@ -244,7 +299,7 @@ $(document).ready(function() {
         $('#formTitle').text('Create Customer/Vendor');
     }
 
-    // Form validation
+    // Form validation and submission
     $('#customerForm').on('submit', function(e) {
         const companyName = $('#company_name').val().trim();
         if (!companyName) {
@@ -252,6 +307,13 @@ $(document).ready(function() {
             alert('Company name is required!');
             return false;
         }
+        
+        // Add loading state to submit button
+        const submitBtn = $(this).find('button[type="submit"]:visible');
+        submitBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Processing...');
+        
+        // The form will submit normally and redirect via PHP
+        return true;
     });
 
     // GST number formatting
@@ -284,5 +346,62 @@ $(document).ready(function() {
             value = value.substring(0, 6);
         }
         $(this).val(value);
+    });
+    
+    // Enhanced delete confirmation for table delete links
+    $(document).on('click', 'a[href*="delete="]', function(e) {
+        e.preventDefault();
+        const deleteUrl = $(this).attr('href');
+        const customerId = deleteUrl.split('delete=')[1];
+        const customerName = $(this).closest('tr').find('td:nth-child(2) strong').text();
+        const deleteLink = $(this);
+        
+        // Show loading state
+        const originalHtml = deleteLink.html();
+        deleteLink.html('<i class="bi bi-hourglass-split"></i>').addClass('disabled');
+        
+        // Check dependencies via AJAX
+        $.ajax({
+            url: 'ajax/check_customer_dependencies.php',
+            type: 'GET',
+            data: { id: customerId },
+            dataType: 'json',
+            success: function(response) {
+                deleteLink.html(originalHtml).removeClass('disabled');
+                
+                if (response.success) {
+                    if (response.can_delete) {
+                        // Safe to delete
+                        const confirmMessage = `Are you sure you want to delete ${response.entity_type} "${response.customer_name}"?\n\n` +
+                                             `This action cannot be undone!`;
+                        
+                        if (confirm(confirmMessage)) {
+                            deleteLink.html('<i class="bi bi-hourglass-split"></i>').addClass('disabled');
+                            window.location.href = deleteUrl;
+                        }
+                    } else {
+                        // Has dependencies
+                        const dependencyList = response.dependencies.join(', ');
+                        alert(`Cannot delete ${response.entity_type} "${response.customer_name}"!\n\n` +
+                              `This customer is referenced in:\n${dependencyList}\n\n` +
+                              `Please remove these references first before deleting the customer.`);
+                    }
+                } else {
+                    alert('Error checking dependencies: ' + response.message);
+                }
+            },
+            error: function() {
+                deleteLink.html(originalHtml).removeClass('disabled');
+                
+                // Fallback to basic confirmation
+                const confirmMessage = `Are you sure you want to delete Customer "${customerName}"?\n\n` +
+                                     `This will check for any related records and prevent deletion if dependencies exist.\n\n` +
+                                     `This action cannot be undone!`;
+                
+                if (confirm(confirmMessage)) {
+                    window.location.href = deleteUrl;
+                }
+            }
+        });
     });
 });

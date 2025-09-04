@@ -1,202 +1,184 @@
 <?php
-// docs/print_credit_note.php
+// docs/print_credit_note.php (PDF-safe table layout)
 require_once '../common/conn.php';
 require_once '../common/functions.php';
+require_once '../common/print_common.php';
 
-if (!isset($_SESSION['user_id'])) {
-    die('Access denied');
+if (!isset($_GET['pdf'])) {
+    checkLogin();
 }
-
+if (!isset($_SESSION['user_id'])) die('Access denied');
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+    logDocumentActivity('credit_notes', "Invalid credit note ID access attempt");
     die('Invalid credit note ID');
 }
-
 $cn_id = (int)$_GET['id'];
 
-// Get credit note details
-$cn_sql = "SELECT cn.*, c.email as customer_email, c.phone as customer_phone,
-                  u.full_name as created_by_name
-           FROM credit_notes cn
-           LEFT JOIN customers c ON cn.customer_id = c.id
-           LEFT JOIN users u ON cn.created_by = u.id
-           WHERE cn.id = $cn_id";
+logDocumentActivity('credit_notes', "Accessing credit note print", $cn_id);
 
-$result = $conn->query($cn_sql);
-
-if ($result->num_rows === 0) {
+$sql = "SELECT cn.*, c.email as customer_email, c.phone as customer_phone,
+               u.full_name as created_by_name
+        FROM credit_notes cn
+        LEFT JOIN customers c ON cn.customer_id = c.id
+        LEFT JOIN users u ON cn.created_by = u.id
+        WHERE cn.id = $cn_id";
+$res = $conn->query($sql);
+if (!$res || $res->num_rows === 0) {
+    logDocumentActivity('credit_notes', "Credit note not found", $cn_id);
     die('Credit note not found');
 }
+$cn = $res->fetch_assoc();
 
-$credit_note = $result->fetch_assoc();
+logDocumentActivity('credit_notes', "Credit note print generated successfully", $cn_id);
 
-// Get company and bank details from common functions
 $company = getCompanyDetails();
-$bank = getBankDetails();
-$amount_in_words = getAmountInWords($credit_note['total_amount']);
+$bank    = getBankDetails();
+$amount_in_words = getAmountInWords((float)($cn['total_amount'] ?? 0));
 ?>
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Credit Note — <?php echo htmlspecialchars($credit_note['credit_note_number']); ?></title>
-  <style>
-    :root{
-      --ink:#111827;--muted:#6b7280;--line:#e5e7eb;--brand:#dc3545;--bg:#ffffff
-    }
-    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial}
-    .doc{max-width:900px;margin:24px auto;padding:24px;border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.04)}
-    .brandbar{display:flex;justify-content:space-between;gap:16px}
-    .brand h1{margin:0 0 4px;font-size:22px;letter-spacing:.3px}
-    .brand p{margin:0;color:var(--muted);font-size:12px;line-height:1.4}
-    .tag{font-weight:800;font-size:24px;padding:6px 12px;border-radius:10px;border:2px solid var(--brand);color:var(--brand);height:max-content}
-
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
-    .panel{border:1px solid var(--line);border-radius:10px;padding:12px}
-    .panel h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
-    .kv{display:grid;grid-template-columns:160px 1fr;gap:6px 10px;font-size:13px}
-    .kv .key{color:var(--muted)}
-
-    .amount-section{border:1px solid var(--line);border-radius:10px;padding:20px;margin:16px 0;text-align:center;background:linear-gradient(135deg, #dc3545 0%, #c82333 100%);color:white}
-    .amount-label{font-size:18px;margin-bottom:5px;opacity:0.9}
-    .amount-value{font-size:32px;font-weight:bold;margin-bottom:10px}
-    .amount-words{font-size:14px;opacity:0.9}
-
-    .reason-section{border:1px solid var(--line);border-radius:10px;padding:16px;margin:16px 0;background:#f8f9fa}
-    .reason-section h3{margin:0 0 12px;font-size:15px;color:var(--brand);font-weight:bold}
-    .reason-text{font-size:14px;line-height:1.6;margin:0}
-
-    .terms-section{margin:16px 0}
-    .terms-section h3{margin:0 0 12px;font-size:15px;color:var(--brand);font-weight:bold}
-    .terms-list{margin:0;padding-left:20px;font-size:13px;line-height:1.5}
-    .terms-list li{margin:4px 0}
-
-    .signatures{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px}
-    .signature-box{text-align:center;border-top:1px solid var(--ink);padding-top:10px}
-    .signature-label{font-weight:bold;font-size:14px}
-    .signature-company{font-size:12px;color:var(--muted);margin-top:4px}
-
-    .note{margin-top:8px;font-size:12px;color:var(--muted)}
-    .sign{margin-top:24px;display:flex;justify-content:flex-end}
-    .sign .box{border-top:1px solid var(--line);padding-top:8px;min-width:240px;text-align:center;font-size:12px;color:var(--muted)}
-
-    .footer-section{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);text-align:center;font-size:12px;color:var(--muted)}
-
-    .no-print{display:block;}
-    @media print{
-      .doc{box-shadow:none;border:none;margin:0;padding:16px;}
-      .no-print{display:none !important;}
-      body{margin:0;}
-    }
-  </style>
+<meta charset="utf-8">
+<title>Credit Note — <?php echo htmlspecialchars($cn['credit_note_number']); ?></title>
+<style>
+body{font:14px/1.45 "DejaVu Sans",Arial,sans-serif;color:#222;margin:0}
+.wrapper{max-width:800px;margin:0 auto;padding:10mm}
+h1{font-size:18px;margin:0 0 3mm}
+h2{font-size:15px;margin:6mm 0 3mm;color:#1d4ed8}
+.small{color:#666;font-size:12px}
+table{width:100%;border-collapse:collapse}
+td,th{padding:6px 6px;vertical-align:top}
+.kv td{border:1px solid #d1d5db}
+.kv td:first-child{background:#f9fafb;width:160px;font-weight:bold}
+.hr{height:1px;background:#e5e7eb;margin:6mm 0}
+.items thead th{border-bottom:1px solid #374151;background:#f3f4f6;font-size:12px;text-align:left}
+.items td{border-bottom:1px solid #e5e7eb}
+.num{text-align:right;white-space:nowrap}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;color:#fff}
+.badge-issued{background:#16a34a}
+.badge-other{background:#6b7280}
+.box{border:1px solid #d1d5db;padding:6mm}
+.footer{font-size:12px;border-top:1px solid #374151;margin-top:6mm;padding-top:2mm;color:#444}
+@page { size:A4; margin:12mm }
+thead { display: table-header-group; }
+tfoot { display: table-row-group; }
+tr { page-break-inside: avoid; }
+@media print { .no-print { display:none !important; } .wrapper{max-width:100%;padding:0} }
+</style>
 </head>
 <body>
-  <article class="doc">
-    <header class="brandbar">
-      <div class="brand">
-        <h1><?php echo $company['name']; ?></h1>
-        <p><?php echo $company['address']; ?><br>
-        GSTIN: <?php echo $company['gstin']; ?> • State: <?php echo $company['state']; ?> • CIN: <?php echo $company['cin']; ?><br>
-        <?php echo $company['phone']; ?> • <?php echo $company['email']; ?></p>
-      </div>
-      <div class="tag">Credit Note</div>
-    </header>
+<div class="wrapper">
 
-    <div class="grid">
-      <section class="panel">
-        <h3>Credit To</h3>
-        <div class="kv">
-          <div class="key">Name</div><div><?php echo htmlspecialchars($credit_note['customer_name']); ?></div>
-          <?php if (!empty($credit_note['customer_address'])): ?>
-          <div class="key">Address</div><div><?php echo htmlspecialchars($credit_note['customer_address']); ?></div>
-          <?php endif; ?>
-          <?php if (!empty($credit_note['customer_gstin'])): ?>
-          <div class="key">GSTIN</div><div><?php echo htmlspecialchars($credit_note['customer_gstin']); ?></div>
-          <?php endif; ?>
-          <?php if (!empty($credit_note['customer_phone']) || !empty($credit_note['customer_email'])): ?>
-          <div class="key">Contact</div><div><?php echo htmlspecialchars($credit_note['customer_phone'] ?: $credit_note['customer_email']); ?></div>
-          <?php endif; ?>
+  <!-- Header -->
+  <table>
+    <tr>
+      <td width="72">
+        <div style="width:60px;height:60px;background:#2563eb;color:#fff;text-align:center;line-height:60px;font-weight:bold;border-radius:6px">CN</div>
+      </td>
+      <td>
+        <h1>Credit Note — <?php echo htmlspecialchars($cn['credit_note_number']); ?></h1>
+        <div class="small">
+          <?php echo htmlspecialchars($company['address'] ?? ''); ?><br>
+          GSTIN: <?php echo htmlspecialchars($company['gstin'] ?? ($company['gst'] ?? '')); ?> · State: <?php echo htmlspecialchars($company['state'] ?? ''); ?> · CIN: <?php echo htmlspecialchars($company['cin'] ?? ''); ?><br>
+          <?php echo htmlspecialchars($company['phone'] ?? ''); ?> · <?php echo htmlspecialchars($company['email'] ?? ''); ?>
         </div>
-      </section>
-      <section class="panel">
-        <h3>Credit Note Details</h3>
-        <div class="kv">
-          <div class="key">Credit Note No.</div><div><?php echo htmlspecialchars($credit_note['credit_note_number']); ?></div>
-          <div class="key">Date</div><div><?php echo date('d/m/Y', strtotime($credit_note['credit_date'])); ?></div>
-          <?php if (!empty($credit_note['original_invoice'])): ?>
-          <div class="key">Original Invoice</div><div><?php echo htmlspecialchars($credit_note['original_invoice']); ?></div>
+      </td>
+      <td width="140" class="box" style="text-align:center;font-weight:700">CREDIT NOTE</td>
+    </tr>
+  </table>
+
+  <!-- Two columns -->
+  <table style="margin-top:6mm">
+    <tr>
+      <td width="50%" valign="top">
+        <h2>Credit To</h2>
+        <table class="kv">
+          <tr><td>Name</td><td><?php echo htmlspecialchars($cn['customer_name'] ?? ''); ?></td></tr>
+          <?php if (!empty($cn['customer_address'])): ?>
+          <tr><td>Address</td><td><?php echo nl2br(htmlspecialchars($cn['customer_address'])); ?></td></tr>
           <?php endif; ?>
-          <div class="key">Status</div><div><span style="background:<?php echo $credit_note['status'] == 'issued' ? '#28a745' : '#6c757d'; ?>;color:white;padding:2px 8px;border-radius:4px;font-size:11px;"><?php echo ucwords($credit_note['status']); ?></span></div>
-          <div class="key">Created By</div><div><?php echo htmlspecialchars($credit_note['created_by_name'] ?: 'System'); ?></div>
+          <?php if (!empty($cn['customer_gstin'])): ?>
+          <tr><td>GSTIN</td><td><?php echo htmlspecialchars($cn['customer_gstin']); ?></td></tr>
+          <?php endif; ?>
+          <?php if (!empty($cn['customer_phone']) || !empty($cn['customer_email'])): ?>
+          <tr><td>Contact</td><td><?php echo htmlspecialchars($cn['customer_phone'] ?: $cn['customer_email']); ?></td></tr>
+          <?php endif; ?>
+        </table>
+      </td>
+      <td width="50%" valign="top">
+        <h2>Credit Note Details</h2>
+        <table class="kv">
+          <tr><td>Credit Note No.</td><td><?php echo htmlspecialchars($cn['credit_note_number'] ?? ''); ?></td></tr>
+          <tr><td>Date</td><td><?php echo !empty($cn['credit_date']) ? date('d.m.Y', strtotime($cn['credit_date'])) : ''; ?></td></tr>
+          <?php if (!empty($cn['original_invoice'])): ?>
+          <tr><td>Original Invoice</td><td><?php echo htmlspecialchars($cn['original_invoice']); ?></td></tr>
+          <?php endif; ?>
+          <tr>
+            <td>Status</td>
+            <td>
+              <?php
+                $isIssued = strtolower((string)($cn['status'] ?? '')) === 'issued';
+                $cls = $isIssued ? 'badge-issued' : 'badge-other';
+              ?>
+              <span class="badge <?php echo $cls; ?>"><?php echo ucwords(htmlspecialchars($cn['status'] ?? '')); ?></span>
+            </td>
+          </tr>
+          <tr><td>Created By</td><td><?php echo htmlspecialchars($cn['created_by_name'] ?? 'System'); ?></td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Amount -->
+  <h2>Credit Amount</h2>
+  <table class="kv" style="width:60%;margin-top:2mm">
+    <tr><td>Amount</td><td class="num">₹ <?php echo number_format((float)($cn['total_amount'] ?? 0), 2); ?></td></tr>
+    <tr><td>Amount in words</td><td><?php echo htmlspecialchars($amount_in_words); ?></td></tr>
+  </table>
+
+  <!-- Reason -->
+  <h2>Reason for Credit</h2>
+  <table class="kv">
+    <tr><td>Reason</td><td><?php echo nl2br(htmlspecialchars($cn['reason'] ?? '')); ?></td></tr>
+  </table>
+
+  <!-- Bank + Declaration -->
+  <table style="margin-top:6mm">
+    <tr>
+      <td width="50%" valign="top">
+        <h2>Bank Details</h2>
+        <table class="kv">
+          <tr><td>Bank</td><td><?php echo htmlspecialchars($bank['bank_name'] ?? ''); ?></td></tr>
+          <tr><td>Account No.</td><td><?php echo htmlspecialchars($bank['account_number'] ?? ''); ?></td></tr>
+          <tr><td>IFSC</td><td><?php echo htmlspecialchars($bank['ifsc'] ?? ''); ?></td></tr>
+          <tr><td>Beneficiary</td><td><?php echo htmlspecialchars($bank['beneficiary'] ?? ''); ?></td></tr>
+        </table>
+      </td>
+      <td width="50%" valign="top">
+        <h2>Declaration</h2>
+        <div class="box">
+          We declare that this credit note reflects the correct credit against the referenced transaction. All particulars are true and correct. Subject to Ahmedabad jurisdiction.
         </div>
-      </section>
-    </div>
+      </td>
+    </tr>
+  </table>
 
-    <!-- Credit Amount Section -->
-    <section class="amount-section">
-      <div class="amount-label">CREDIT AMOUNT</div>
-      <div class="amount-value">₹ <?php echo number_format($credit_note['total_amount'], 2); ?></div>
-      <div class="amount-words"><?php echo $amount_in_words; ?></div>
-    </section>
+  <!-- Signatures -->
+  <table style="margin-top:10mm">
+    <tr>
+      <td width="50%" style="text-align:center;border-top:1px solid #9ca3af;padding-top:6px">Customer Signature</td>
+      <td width="50%" style="text-align:center;border-top:1px solid #9ca3af;padding-top:6px">
+        Authorized Signatory<br><span class="small"><?php echo htmlspecialchars($company['name'] ?? ''); ?></span>
+      </td>
+    </tr>
+  </table>
 
-    <!-- Reason for Credit -->
-    <section class="reason-section">
-      <h3>Reason for Credit</h3>
-      <p class="reason-text"><?php echo nl2br(htmlspecialchars($credit_note['reason'])); ?></p>
-    </section>
+  <!-- Footer -->
+  <div class="footer">
+    This is a system-generated Credit Note. For queries, contact <?php echo htmlspecialchars($company['email'] ?? ''); ?>.
+    Generated on <?php echo date('d/m/Y H:i:s'); ?> | Credit Note ID: <?php echo (int)$cn_id; ?>
+  </div>
 
-    <!-- Terms & Conditions -->
-    <section class="terms-section">
-      <h3>Terms & Conditions</h3>
-      <ul class="terms-list">
-        <li>This credit note is issued against the original invoice/transaction mentioned above.</li>
-        <li>The credit amount can be adjusted against future invoices or refunded as per company policy.</li>
-        <li>This credit note is valid for 90 days from the date of issue.</li>
-        <li>Any disputes regarding this credit note should be raised within 7 days of receipt.</li>
-        <li>This is a system-generated credit note and does not require physical signature.</li>
-      </ul>
-    </section>
-
-    <div class="grid" style="margin-top:24px;">
-      <section class="panel">
-        <h3>Bank Details</h3>
-        <div class="kv">
-          <div class="key">Bank</div><div><?php echo $bank['bank_name']; ?></div>
-          <div class="key">Account No.</div><div><?php echo $bank['account_number']; ?></div>
-          <div class="key">IFSC</div><div><?php echo $bank['ifsc']; ?></div>
-          <div class="key">Beneficiary</div><div><?php echo $bank['beneficiary']; ?></div>
-        </div>
-      </section>
-      <section class="panel">
-        <h3>Declaration</h3>
-        <p class="note">We declare that this credit note shows the actual credit amount and that all particulars are true and correct. Subject to Ahmedabad jurisdiction.</p>
-      </section>
-    </div>
-
-    <!-- Signatures -->
-    <div class="signatures">
-      <div class="signature-box">
-        <div class="signature-label">Customer Signature</div>
-      </div>
-      <div class="signature-box">
-        <div class="signature-label">Authorized Signatory</div>
-        <div class="signature-company"><?php echo $company['name']; ?></div>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="footer-section">
-      <p><strong>This is a system-generated Credit Note</strong></p>
-      <p>For any queries regarding this credit note, please contact us at <?php echo $company['email']; ?></p>
-      <p>Generated on <?php echo date('d/m/Y H:i:s'); ?> | Credit Note ID: <?php echo $cn_id; ?></p>
-    </div>
-
-    <!-- Print Controls -->
-    <div class="no-print" style="margin-top:24px;text-align:center;border-top:1px solid var(--line);padding-top:16px;">
-      <button onclick="window.print()" style="background:var(--brand);color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;margin-right:10px;">Print Credit Note</button>
-      <button onclick="window.close()" style="background:var(--muted);color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;">Close</button>
-    </div>
-  </article>
+</div>
 </body>
 </html>

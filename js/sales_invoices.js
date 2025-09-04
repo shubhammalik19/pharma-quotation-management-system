@@ -139,7 +139,7 @@ $(document).ready(function() {
         }
     });
 
-    // Purchase Order autocomplete with item import
+    // Quotation autocomplete with item import
     $('#purchase_order_number').autocomplete({
         source: function(request, response) {
             $.ajax({
@@ -147,14 +147,14 @@ $(document).ready(function() {
                 type: 'GET',
                 data: {
                     term: request.term,
-                    type: 'AUTOCOMPLETE_PO_NUMBERS'
+                    type: 'AUTOCOMPLETE_QUOTATIONS'
                 },
                 dataType: 'json',
                 success: function(data) {
                     response(data);
                 },
                 error: function() {
-                    console.error('Purchase order search failed');
+                    console.error('Quotation search failed');
                     response([]);
                 }
             });
@@ -165,9 +165,9 @@ $(document).ready(function() {
             $('#purchase_order_id').val(ui.item.id);
             $('#purchase_order_number').val(ui.item.value);
             
-            // Import items from purchase order
+            // Import items from quotation
             if (ui.item.id) {
-                loadPurchaseOrderItems(ui.item.id);
+                loadQuotationItems(ui.item.id);
             }
             return false;
         },
@@ -248,14 +248,14 @@ $(document).ready(function() {
         });
     }
 
-    // ---------- PURCHASE ORDER ITEM IMPORT ----------
-    function loadPurchaseOrderItems(poId) {
-        if (!poId) return;
+    // ---------- QUOTATION ITEM IMPORT ----------
+    function loadQuotationItems(quotationId) {
+        if (!quotationId) return;
         
         $.ajax({
-            url: '../ajax/get_purchase_order_details.php',
+            url: '../ajax/get_quotation_details.php',
             type: 'GET',
-            data: { id: poId },
+            data: { id: quotationId },
             dataType: 'json',
             beforeSend: function() {
                 $('#purchase_order_number').prop('disabled', true);
@@ -265,7 +265,7 @@ $(document).ready(function() {
                     // Clear existing items
                     invoiceItems = [];
                     
-                    // Import items from PO
+                    // Import items from Quotation
                     data.items.forEach(item => {
                         const newItem = {
                             type: item.item_type || 'machine',
@@ -283,13 +283,13 @@ $(document).ready(function() {
                     renderInvoiceItems();
                     
                     // Show success message
-                    showNotification('Items imported from Purchase Order successfully', 'success');
+                    showNotification('Items imported from Quotation successfully', 'success');
                 } else {
-                    showNotification('No items found in the selected purchase order', 'warning');
+                    showNotification('No items found in the selected quotation', 'warning');
                 }
             },
             error: function() {
-                showNotification('Failed to load purchase order items', 'error');
+                showNotification('Failed to load quotation items', 'error');
             },
             complete: function() {
                 $('#purchase_order_number').prop('disabled', false);

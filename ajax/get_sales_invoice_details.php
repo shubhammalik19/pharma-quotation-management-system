@@ -20,11 +20,11 @@ $invoice_id = (int)$_GET['id'];
 try {
     // Get invoice details
     $invoice_sql = "SELECT si.*, 
-                           po.po_number as purchase_order_number,
+                           q.quotation_number as purchase_order_number,
                            c.email as customer_email,
                            c.phone as customer_phone
                     FROM sales_invoices si
-                    LEFT JOIN purchase_orders po ON si.purchase_order_id = po.id
+                    LEFT JOIN quotations q ON si.purchase_order_id = q.id
                     LEFT JOIN customers c ON si.customer_id = c.id
                     WHERE si.id = ?";
     

@@ -3,7 +3,6 @@ include '../header.php';
 checkLogin();
 include '../menu.php';
 
-$message = '';
 $prefix = "SO-";
 
 // Generate new sales order number
@@ -52,64 +51,77 @@ if ($_POST) {
             if ($customer_id > 0) {
                 $check_customer = $conn->query("SELECT id, company_name, address, gst_no, phone FROM customers WHERE id = $customer_id AND (entity_type = 'customer' OR entity_type = 'both')");
                 if ($check_customer->num_rows === 0) {
-                    $message = showError('Selected customer does not exist or is not valid.');
+                    redirectWithError('Selected customer does not exist or is not valid.');
                 } else {
                     $customer_data = $check_customer->fetch_assoc();
                     $customer_name = $customer_data['company_name'];
                     // Auto-fill customer details if not provided
                     if (empty($customer_address)) $customer_address = $customer_data['address'] ?? '';
-                    if (empty($customer_gstin)) $customer_gstin = $customer_data['gstin'] ?? '';
+                    if (empty($customer_gstin)) $customer_gstin = $customer_data['gst_no'] ?? '';
                     if (empty($customer_contact)) $customer_contact = $customer_data['phone'] ?? '';
                 }
             } else {
-                $message = showError('Please select a valid customer.');
+                redirectWithError('Please select a valid customer.');
             }
 
             // Validate quotation if provided
             if (!empty($quotation_id)) {
                 $check_quotation = $conn->query("SELECT id, quotation_number FROM quotations WHERE id = $quotation_id");
                 if ($check_quotation->num_rows === 0) {
-                    $message = showError('Selected quotation does not exist.');
+                    redirectWithError('Selected quotation does not exist.');
                 } else {
                     $quotation_data = $check_quotation->fetch_assoc();
                     $quotation_number = $quotation_data['quotation_number'];
                 }
             }
 
-            if (empty($message)) {
+            // Start transaction
+            $conn->begin_transaction();
+            
+            try {
                 $sql = "INSERT INTO sales_orders (so_number, customer_name, customer_id, customer_address, customer_gstin, customer_contact, quotation_id, quotation_number, so_date, delivery_date, notes, status, total_amount, discount_percentage, discount_amount, final_total, created_by) 
                         VALUES ('$so_number', '$customer_name', $customer_id, '$customer_address', '$customer_gstin', '$customer_contact', " . ($quotation_id ?: 'NULL') . ", " . ($quotation_number ? "'$quotation_number'" : 'NULL') . ", '$so_date', " . ($delivery_date ? "'$delivery_date'" : "NULL") . ", '$notes', '$status', $total_amount, $discount_percentage, $discount_amount, $final_total, {$_SESSION['user_id']})";
 
-                if ($conn->query($sql)) {
-                    $so_id = $conn->insert_id;
+                if (!$conn->query($sql)) {
+                    throw new Exception('Error creating sales order: ' . $conn->error);
+                }
+                
+                $so_id = $conn->insert_id;
 
-                    // Handle SO items
-                    if (isset($_POST['items']) && is_array($_POST['items'])) {
-                        foreach ($_POST['items'] as $item) {
-                            $item_type = sanitizeInput($item['type']);
-                            $item_id = intval($item['item_id']);
-                            $item_name = sanitizeInput($item['name']);
-                            $description = sanitizeInput($item['description']);
-                            $hsn_code = sanitizeInput($item['hsn_code'] ?? '');
-                            $quantity = intval($item['quantity']);
-                            $unit = sanitizeInput($item['unit'] ?? 'Nos');
-                            $unit_price = floatval($item['unit_price']);
-                            $rate = floatval($item['rate'] ?? $item['unit_price']);
-                            $gst_rate = floatval($item['gst_rate'] ?? 18);
-                            $amount = floatval($item['amount'] ?? $item['total_price']);
-                            $total_price = floatval($item['total_price']);
-                            $sl_no = intval($item['sl_no'] ?? 0);
+                // Handle SO items
+                if (isset($_POST['items']) && is_array($_POST['items'])) {
+                    foreach ($_POST['items'] as $item) {
+                        $item_type = sanitizeInput($item['type']);
+                        $item_id = intval($item['item_id']);
+                        $item_name = sanitizeInput($item['name']);
+                        $description = sanitizeInput($item['description']);
+                        $hsn_code = sanitizeInput($item['hsn_code'] ?? '');
+                        $quantity = intval($item['quantity']);
+                        $unit = sanitizeInput($item['unit'] ?? 'Nos');
+                        $unit_price = floatval($item['unit_price']);
+                        $rate = floatval($item['rate'] ?? $item['unit_price']);
+                        $gst_rate = floatval($item['gst_rate'] ?? 18);
+                        $amount = floatval($item['amount'] ?? $item['total_price']);
+                        $total_price = floatval($item['total_price']);
+                        $sl_no = intval($item['sl_no'] ?? 0);
 
-                            $item_sql = "INSERT INTO sales_order_items (so_id, item_type, item_id, item_name, description, hsn_code, quantity, unit_price, total_price, sl_no, unit, rate, gst_rate, amount) 
-                                         VALUES ($so_id, '$item_type', $item_id, '$item_name', '$description', '$hsn_code', $quantity, $unit_price, $total_price, $sl_no, '$unit', $rate, $gst_rate, $amount)";
-                            $conn->query($item_sql);
+                        $item_sql = "INSERT INTO sales_order_items (so_id, item_type, item_id, item_name, description, hsn_code, quantity, unit_price, total_price, sl_no, unit, rate, gst_rate, amount) 
+                                     VALUES ($so_id, '$item_type', $item_id, '$item_name', '$description', '$hsn_code', $quantity, $unit_price, $total_price, $sl_no, '$unit', $rate, $gst_rate, $amount)";
+                        
+                        if (!$conn->query($item_sql)) {
+                            throw new Exception("Error saving item: " . $conn->error);
                         }
                     }
-
-                    $message = showSuccess('Sales Order created successfully!');
-                } else {
-                    $message = showError('Error creating sales order: ' . $conn->error);
                 }
+
+                // Commit transaction
+                $conn->commit();
+                redirectWithSuccess('Sales Order created successfully!');
+                
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                redirectWithError($e->getMessage());
             }
         } elseif ($_POST['action'] === 'update_so' && hasPermission('sales_orders', 'edit')) {
             $so_id = intval($_POST['id']);
@@ -132,13 +144,14 @@ if ($_POST) {
 
             $poCheck = $conn->query("SELECT id FROM purchase_orders WHERE sales_order_id = $so_id LIMIT 1");
             if ($poCheck && $poCheck->num_rows > 0) {
-                $message = showError('This Sales Order is already used in a Purchase Order and cannot be edited.');
+                redirectWithError('This Sales Order is already used in a Purchase Order and cannot be edited.');
             }
+            
             // Validate customer exists and get additional data
             if ($customer_id > 0) {
                 $check_customer = $conn->query("SELECT id, company_name, address,gst_no as gstin, phone FROM customers WHERE id = $customer_id AND (entity_type = 'customer' OR entity_type = 'both')");
                 if ($check_customer->num_rows === 0) {
-                    $message = showError('Selected customer does not exist or is not valid.');
+                    redirectWithError('Selected customer does not exist or is not valid.');
                 } else {
                     $customer_data = $check_customer->fetch_assoc();
                     $customer_name = $customer_data['company_name'];
@@ -148,21 +161,24 @@ if ($_POST) {
                     if (empty($customer_contact)) $customer_contact = $customer_data['phone'] ?? '';
                 }
             } else {
-                $message = showError('Please select a valid customer.');
+                redirectWithError('Please select a valid customer.');
             }
 
             // Validate quotation if provided
             if (!empty($quotation_id)) {
                 $check_quotation = $conn->query("SELECT id, quotation_number FROM quotations WHERE id = $quotation_id");
                 if ($check_quotation->num_rows === 0) {
-                    $message = showError('Selected quotation does not exist.');
+                    redirectWithError('Selected quotation does not exist.');
                 } else {
                     $quotation_data = $check_quotation->fetch_assoc();
                     $quotation_number = $quotation_data['quotation_number'];
                 }
             }
 
-            if (empty($message)) {
+            // Start transaction
+            $conn->begin_transaction();
+            
+            try {
                 $sql = "UPDATE sales_orders SET 
                         so_number = '$so_number', 
                         customer_name = '$customer_name', 
@@ -182,36 +198,48 @@ if ($_POST) {
                         final_total = $final_total
                         WHERE id = $so_id";
 
-                if ($conn->query($sql)) {
-                    // Delete existing items and insert new ones
-                    $conn->query("DELETE FROM sales_order_items WHERE so_id = $so_id");
+                if (!$conn->query($sql)) {
+                    throw new Exception('Error updating sales order: ' . $conn->error);
+                }
+                
+                // Delete existing items and insert new ones
+                if (!$conn->query("DELETE FROM sales_order_items WHERE so_id = $so_id")) {
+                    throw new Exception('Error deleting existing items: ' . $conn->error);
+                }
 
-                    if (isset($_POST['items']) && is_array($_POST['items'])) {
-                        foreach ($_POST['items'] as $item) {
-                            $item_type = sanitizeInput($item['type']);
-                            $item_id = intval($item['item_id']);
-                            $item_name = sanitizeInput($item['name']);
-                            $description = sanitizeInput($item['description']);
-                            $hsn_code = sanitizeInput($item['hsn_code'] ?? '');
-                            $quantity = intval($item['quantity']);
-                            $unit = sanitizeInput($item['unit'] ?? 'Nos');
-                            $unit_price = floatval($item['unit_price']);
-                            $rate = floatval($item['rate'] ?? $item['unit_price']);
-                            $gst_rate = floatval($item['gst_rate'] ?? 18);
-                            $amount = floatval($item['amount'] ?? $item['total_price']);
-                            $total_price = floatval($item['total_price']);
-                            $sl_no = intval($item['sl_no'] ?? 0);
+                if (isset($_POST['items']) && is_array($_POST['items'])) {
+                    foreach ($_POST['items'] as $item) {
+                        $item_type = sanitizeInput($item['type']);
+                        $item_id = intval($item['item_id']);
+                        $item_name = sanitizeInput($item['name']);
+                        $description = sanitizeInput($item['description']);
+                        $hsn_code = sanitizeInput($item['hsn_code'] ?? '');
+                        $quantity = intval($item['quantity']);
+                        $unit = sanitizeInput($item['unit'] ?? 'Nos');
+                        $unit_price = floatval($item['unit_price']);
+                        $rate = floatval($item['rate'] ?? $item['unit_price']);
+                        $gst_rate = floatval($item['gst_rate'] ?? 18);
+                        $amount = floatval($item['amount'] ?? $item['total_price']);
+                        $total_price = floatval($item['total_price']);
+                        $sl_no = intval($item['sl_no'] ?? 0);
 
-                            $item_sql = "INSERT INTO sales_order_items (so_id, item_type, item_id, item_name, description, hsn_code, quantity, unit_price, total_price, sl_no, unit, rate, gst_rate, amount) 
-                                         VALUES ($so_id, '$item_type', $item_id, '$item_name', '$description', '$hsn_code', $quantity, $unit_price, $total_price, $sl_no, '$unit', $rate, $gst_rate, $amount)";
-                            $conn->query($item_sql);
+                        $item_sql = "INSERT INTO sales_order_items (so_id, item_type, item_id, item_name, description, hsn_code, quantity, unit_price, total_price, sl_no, unit, rate, gst_rate, amount) 
+                                     VALUES ($so_id, '$item_type', $item_id, '$item_name', '$description', '$hsn_code', $quantity, $unit_price, $total_price, $sl_no, '$unit', $rate, $gst_rate, $amount)";
+                        
+                        if (!$conn->query($item_sql)) {
+                            throw new Exception("Error saving item: " . $conn->error);
                         }
                     }
-
-                    $message = showSuccess('Sales Order updated successfully!');
-                } else {
-                    $message = showError('Error updating sales order: ' . $conn->error);
                 }
+
+                // Commit transaction
+                $conn->commit();
+                redirectWithSuccess('Sales Order updated successfully!');
+                
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                redirectWithError($e->getMessage());
             }
         }
     }
@@ -220,36 +248,64 @@ if ($_POST) {
 // Handle delete
 if (isset($_GET['delete'])) {
     if (!hasPermission('sales_orders', 'delete')) {
-        $message = showError("You don't have permission to delete sales orders!");
+        redirectWithError("You don't have permission to delete sales orders!");
     } else {
         $id = (int)$_GET['delete'];
 
         $poCheck = $conn->query("SELECT id FROM purchase_orders WHERE sales_order_id = $id LIMIT 1");
         if ($poCheck && $poCheck->num_rows > 0) {
-            $message = showError('This Sales Order is already used in a Purchase Order and cannot be edited.');
-            exit;
+            redirectWithError('This Sales Order is already used in a Purchase Order and cannot be deleted.');
         }
-        // Delete SO items first
-        $conn->query("DELETE FROM sales_order_items WHERE so_id = $id");
-        $sql = "DELETE FROM sales_orders WHERE id = $id";
-        if ($conn->query($sql)) {
-            $message = showSuccess("Sales Order deleted successfully!");
-        } else {
-            $message = showError("Error deleting sales order: " . $conn->error);
+        
+        // Get SO number for confirmation message
+        $so_sql = "SELECT so_number FROM sales_orders WHERE id = $id";
+        $so_result = $conn->query($so_sql);
+        $so_number = '';
+        if ($so_result && $so_row = $so_result->fetch_assoc()) {
+            $so_number = $so_row['so_number'];
+        }
+        
+        // Start transaction
+        $conn->begin_transaction();
+        
+        try {
+            // Delete SO items first
+            if (!$conn->query("DELETE FROM sales_order_items WHERE so_id = $id")) {
+                throw new Exception("Error deleting sales order items: " . $conn->error);
+            }
+            
+            // Delete sales order
+            $sql = "DELETE FROM sales_orders WHERE id = $id";
+            if (!$conn->query($sql)) {
+                throw new Exception("Error deleting sales order: " . $conn->error);
+            }
+            
+            if ($conn->affected_rows > 0) {
+                $conn->commit();
+                redirectWithSuccess("Sales Order '$so_number' deleted successfully!");
+            } else {
+                $conn->rollback();
+                redirectWithError("Sales Order not found or already deleted!");
+            }
+            
+        } catch (Exception $e) {
+            $conn->rollback();
+            redirectWithError($e->getMessage());
         }
     }
 }
+
+// Get search parameter
+$search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
 // Pagination setup
 $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-// Search functionality
-$search = '';
+// Build search query
 $whereClause = '';
-if (isset($_GET['search']) && !empty($_GET['search'])) {
-    $search = sanitizeInput($_GET['search']);
+if (!empty($search)) {
     $whereClause = "WHERE so.so_number LIKE '%$search%' OR so.customer_name LIKE '%$search%' OR so.quotation_number LIKE '%$search%' OR so.status LIKE '%$search%'";
 }
 
@@ -285,17 +341,17 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
 
 <div class="container-fluid mt-4">
     <div class="row">
-        <div class="col-12 d-flex justify-content-between align-items-center">
+        <div class="col-12">
             <h2><i class="bi bi-cart-check"></i> Sales Orders</h2>
+            <hr>
         </div>
-        <hr>
     </div>
 
-    <?php echo $message; ?>
+    <?php echo getAllMessages(); ?>
 
     <!-- Search Box -->
-    <div class="row mb-3">
-        <div class="col-12">
+    <div class="row mb-4">
+        <div class="col-md-8">
             <div class="search-box">
                 <div class="row">
                     <div class="col-md-6">
@@ -303,7 +359,7 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
                             <i class="bi bi-search"></i> Search Sales Orders
                         </label>
                         <input type="text" class="form-control" id="soSearch"
-                               placeholder="Search by SO number, customer name, quotation number..."
+                               placeholder="Search by SO number, customer name, quotation number or status..."
                                value="<?php echo htmlspecialchars($search); ?>"
                                autocomplete="off">
                     </div>
@@ -320,15 +376,13 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
         </div>
     </div>
 
-    <!-- ROW 1: FORM (left) + ITEMS & CALCULATIONS (right) -->
     <div class="row">
-    
+        <form method="POST" id="soForm" class="row">
             <!-- Sales Order Form -->
             <div class="col-md-6">
-                     <form method="POST" id="soForm">
                 <div class="card">
                     <div class="card-header">
-                        <h5><i class="bi bi-cart-plus"></i> <span id="formTitle">Sales Order Details</span></h5>
+                        <h5><i class="bi bi-cart-plus"></i> <span id="formTitle">Create Sales Order</span></h5>
                     </div>
                     <div class="card-body">
                        

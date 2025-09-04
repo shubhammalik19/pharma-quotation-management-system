@@ -5,8 +5,6 @@ include 'header.php';
 checkLogin();
 include 'menu.php';
 
-$message = '';
-
 // Handle form submissions
 if ($_POST) {
     if (isset($_POST['action'])) {
@@ -19,16 +17,26 @@ if ($_POST) {
             $is_active = 1;
             
             if (!empty($part_name)) {
-                $sql = "INSERT INTO spares (part_name, part_code, description, price, machine_id, is_active) 
-                        VALUES ('$part_name', '$part_code', '$description', $price, " . ($machine_id ?: 'NULL') . ", $is_active)";
+                // Start transaction
+                $conn->begin_transaction();
                 
-                if ($conn->query($sql)) {
-                    $message = showSuccess('Spare part created successfully!');
-                } else {
-                    $message = showError('Error creating spare part: ' . $conn->error);
+                try {
+                    $sql = "INSERT INTO spares (part_name, part_code, description, price, machine_id, is_active) 
+                            VALUES ('$part_name', '$part_code', '$description', $price, " . ($machine_id ?: 'NULL') . ", $is_active)";
+                    
+                    if (!$conn->query($sql)) {
+                        throw new Exception('Error creating spare part: ' . $conn->error);
+                    }
+                    
+                    $conn->commit();
+                    redirectWithSuccess('Spare part created successfully!');
+                    
+                } catch (Exception $e) {
+                    $conn->rollback();
+                    redirectWithError($e->getMessage());
                 }
             } else {
-                $message = showError('Part name is required!');
+                redirectWithError('Part name is required!');
             }
         } elseif ($_POST['action'] === 'update_spare' && hasPermission('spares', 'edit')) {
             $spare_id = intval($_POST['id']);
@@ -39,21 +47,31 @@ if ($_POST) {
             $machine_id = intval($_POST['machine_id'] ?? 0);
             
             if (!empty($part_name)) {
-                $sql = "UPDATE spares SET 
-                        part_name = '$part_name', 
-                        part_code = '$part_code', 
-                        description = '$description', 
-                        price = $price, 
-                        machine_id = " . ($machine_id ?: 'NULL') . "
-                        WHERE id = $spare_id";
+                // Start transaction
+                $conn->begin_transaction();
                 
-                if ($conn->query($sql)) {
-                    $message = showSuccess('Spare part updated successfully!');
-                } else {
-                    $message = showError('Error updating spare part: ' . $conn->error);
+                try {
+                    $sql = "UPDATE spares SET 
+                            part_name = '$part_name', 
+                            part_code = '$part_code', 
+                            description = '$description', 
+                            price = $price, 
+                            machine_id = " . ($machine_id ?: 'NULL') . "
+                            WHERE id = $spare_id";
+                    
+                    if (!$conn->query($sql)) {
+                        throw new Exception('Error updating spare part: ' . $conn->error);
+                    }
+                    
+                    $conn->commit();
+                    redirectWithSuccess('Spare part updated successfully!');
+                    
+                } catch (Exception $e) {
+                    $conn->rollback();
+                    redirectWithError($e->getMessage());
                 }
             } else {
-                $message = showError('Part name is required!');
+                redirectWithError('Part name is required!');
             }
         }
     }
@@ -62,14 +80,27 @@ if ($_POST) {
 // Handle delete
 if (isset($_GET['delete'])) {
     if (!hasPermission('spares', 'delete')) {
-        $message = showError("You don't have permission to delete spare parts!");
+        redirectWithError("You don't have permission to delete spare parts!");
     } else {
         $id = (int)$_GET['delete'];
+        
+        // Get spare part name for confirmation message
+        $spare_sql = "SELECT part_name FROM spares WHERE id = $id";
+        $spare_result = $conn->query($spare_sql);
+        $spare_name = '';
+        if ($spare_result && $spare_row = $spare_result->fetch_assoc()) {
+            $spare_name = $spare_row['part_name'];
+        }
+        
         $sql = "DELETE FROM spares WHERE id = $id";
         if ($conn->query($sql)) {
-            $message = showSuccess("Spare part deleted successfully!");
+            if ($conn->affected_rows > 0) {
+                redirectWithSuccess("Spare part '$spare_name' deleted successfully!");
+            } else {
+                redirectWithError("Spare part not found or already deleted!");
+            }
         } else {
-            $message = showError("Error deleting spare part: " . $conn->error);
+            redirectWithError("Error deleting spare part: " . $conn->error);
         }
     }
 }
@@ -106,7 +137,7 @@ $machines = $conn->query("SELECT id, name FROM machines WHERE is_active = 1 ORDE
         </div>
     </div>
     
-    <?php echo $message; ?>
+    <?php echo getAllMessages(); ?>
     
     <!-- Search Box -->
     <div class="row mb-4">

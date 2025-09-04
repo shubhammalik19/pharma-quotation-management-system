@@ -1,11 +1,7 @@
 <?php
-
-
 include 'header.php';
 checkLogin();
 include 'menu.php';
-
-$message = '';
 
 // Handle form submissions
 if ($_POST) {
@@ -30,12 +26,12 @@ if ($_POST) {
                         VALUES ('$entity_type', '$company_name', '$contact_person', '$phone', '$email', $gst_value, '$address', '$city', '$state', '$pincode')";
                 
                 if ($conn->query($sql)) {
-                    $message = showSuccess('Customer created successfully!');
+                    redirectWithSuccess('Customer created successfully!');
                 } else {
-                    $message = showError('Error creating customer: ' . $conn->error);
+                    redirectWithError('Error creating customer: ' . $conn->error);
                 }
             } else {
-                $message = showError('Company name is required!');
+                redirectWithError('Company name is required!');
             }
         } elseif ($_POST['action'] === 'update_customer' && hasPermission('customers', 'edit')) {
             $customer_id = intval($_POST['id']);
@@ -68,12 +64,12 @@ if ($_POST) {
                         WHERE id = $customer_id";
                 
                 if ($conn->query($sql)) {
-                    $message = showSuccess('Customer updated successfully!');
+                    redirectWithSuccess('Customer updated successfully!');
                 } else {
-                    $message = showError('Error updating customer: ' . $conn->error);
+                    redirectWithError('Error updating customer: ' . $conn->error);
                 }
             } else {
-                $message = showError('Company name is required!');
+                redirectWithError('Company name is required!');
             }
         }
     }
@@ -82,14 +78,35 @@ if ($_POST) {
 // Handle delete
 if (isset($_GET['delete'])) {
     if (!hasPermission('customers', 'delete')) {
-        $message = showError("You don't have permission to delete customers!");
+        redirectWithError("You don't have permission to delete customers!");
     } else {
         $id = (int)$_GET['delete'];
+        
+        // Check for dependencies before deletion
+        $dependencies = checkCustomerDependencies($conn, $id);
+        
+        if (!empty($dependencies)) {
+            $dependencyList = implode(', ', $dependencies);
+            redirectWithError("Cannot delete customer! This customer is referenced in: " . $dependencyList . ". Please remove these references first.");
+        }
+        
+        // Get customer name for confirmation message
+        $customer_sql = "SELECT company_name FROM customers WHERE id = $id";
+        $customer_result = $conn->query($customer_sql);
+        $customer_name = '';
+        if ($customer_result && $customer_row = $customer_result->fetch_assoc()) {
+            $customer_name = $customer_row['company_name'];
+        }
+        
         $sql = "DELETE FROM customers WHERE id = $id";
         if ($conn->query($sql)) {
-            $message = showSuccess("Customer deleted successfully!");
+            if ($conn->affected_rows > 0) {
+                redirectWithSuccess("Customer '$customer_name' deleted successfully!");
+            } else {
+                redirectWithError("Customer not found or already deleted!");
+            }
         } else {
-            $message = showError("Error deleting customer: " . $conn->error);
+            redirectWithError("Error deleting customer: " . $conn->error);
         }
     }
 }
@@ -123,7 +140,7 @@ $total_pages = ceil($total_records / $records_per_page);
         </div>
     </div>
     
-    <?php echo $message; ?>
+    <?php echo getAllMessages(); ?>
     
     <!-- Search Box -->
     <div class="row mb-4">
@@ -286,7 +303,8 @@ $total_pages = ceil($total_records / $records_per_page);
                                                 <i class="bi bi-pencil"></i> View/Edit
                                             </button>
                                             <?php if (hasPermission('customers', 'delete')): ?>
-                                            <a href="?delete=<?php echo $row['id']; ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this customer?')">
+                                            <a href="?delete=<?php echo $row['id']; ?>" class="btn btn-sm btn-outline-danger customer-delete-btn" 
+                                               title="Delete Customer">
                                                 <i class="bi bi-trash"></i>
                                             </a>
                                             <?php endif; ?>

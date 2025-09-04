@@ -1,5 +1,48 @@
 // Common JavaScript functions for the Quotation Management System
 
+// Consistent page reload function
+function reloadPage(message = null, type = 'success') {
+    if (message) {
+        // Store message in sessionStorage for display after reload
+        sessionStorage.setItem('flashMessage', message);
+        sessionStorage.setItem('flashType', type);
+    }
+    window.location.href = window.location.pathname + window.location.search;
+}
+
+// Function to display flash messages after page reload
+function displayFlashMessage() {
+    const message = sessionStorage.getItem('flashMessage');
+    const type = sessionStorage.getItem('flashType');
+    
+    if (message) {
+        // Clear the stored message
+        sessionStorage.removeItem('flashMessage');
+        sessionStorage.removeItem('flashType');
+        
+        // Create and display the alert
+        const alertClass = type === 'error' ? 'alert-danger' : 'alert-success';
+        const alertHTML = `
+            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                <i class="bi bi-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        
+        // Insert at the top of the main content area
+        const container = document.querySelector('.container-fluid');
+        if (container) {
+            container.insertAdjacentHTML('afterbegin', alertHTML);
+        }
+    }
+}
+
+// Initialize flash message display on page load
+document.addEventListener('DOMContentLoaded', function() {
+    displayFlashMessage();
+});
+
 // Global autocomplete function with unified endpoint
 function initAutocomplete(inputSelector, type, minLength = 2, selectCallback = null) {
     $(inputSelector).autocomplete({

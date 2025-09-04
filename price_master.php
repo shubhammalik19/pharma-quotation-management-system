@@ -5,8 +5,6 @@ include 'header.php';
 checkLogin();
 include 'menu.php';
 
-$message = '';
-
 // Handle form submissions
 if ($_POST) {
     if (isset($_POST['action'])) {
@@ -31,19 +29,19 @@ if ($_POST) {
                 $checkResult = $conn->query($checkSql);
                 
                 if ($checkResult->num_rows > 0) {
-                    $message = showError("A price record already exists for this machine with overlapping date range!");
+                    redirectWithError("A price record already exists for this machine with overlapping date range!");
                 } else {
                     $sql = "INSERT INTO price_master (machine_id, price, valid_from, valid_to, is_active) 
                             VALUES ($machine_id, $price, '$valid_from', '$valid_to', $is_active)";
                     
                     if ($conn->query($sql)) {
-                        $message = showSuccess('Price created successfully!');
+                        redirectWithSuccess('Price created successfully!');
                     } else {
-                        $message = showError('Error creating price: ' . $conn->error);
+                        redirectWithError('Error creating price: ' . $conn->error);
                     }
                 }
             } else {
-                $message = showError('All fields are required!');
+                redirectWithError('All fields are required!');
             }
         } elseif ($_POST['action'] === 'update_price' && hasPermission('price_master', 'edit')) {
             $price_id = intval($_POST['id']);
@@ -67,7 +65,7 @@ if ($_POST) {
                 $checkResult = $conn->query($checkSql);
                 
                 if ($checkResult->num_rows > 0) {
-                    $message = showError("A price record already exists for this machine with overlapping date range!");
+                    redirectWithError("A price record already exists for this machine with overlapping date range!");
                 } else {
                     $sql = "UPDATE price_master SET 
                             machine_id = $machine_id, 
@@ -77,13 +75,13 @@ if ($_POST) {
                             WHERE id = $price_id";
                     
                     if ($conn->query($sql)) {
-                        $message = showSuccess('Price updated successfully!');
+                        redirectWithSuccess('Price updated successfully!');
                     } else {
-                        $message = showError('Error updating price: ' . $conn->error);
+                        redirectWithError('Error updating price: ' . $conn->error);
                     }
                 }
             } else {
-                $message = showError('All fields are required!');
+                redirectWithError('All fields are required!');
             }
         }
     }
@@ -92,14 +90,27 @@ if ($_POST) {
 // Handle delete
 if (isset($_GET['delete'])) {
     if (!hasPermission('price_master', 'delete')) {
-        $message = showError("You don't have permission to delete price entries!");
+        redirectWithError("You don't have permission to delete price entries!");
     } else {
         $id = (int)$_GET['delete'];
+        
+        // Get price record details for confirmation message
+        $price_sql = "SELECT pm.*, m.name as machine_name FROM price_master pm LEFT JOIN machines m ON pm.machine_id = m.id WHERE pm.id = $id";
+        $price_result = $conn->query($price_sql);
+        $price_name = '';
+        if ($price_result && $price_row = $price_result->fetch_assoc()) {
+            $price_name = $price_row['machine_name'] . ' (₹' . number_format($price_row['price'], 2) . ')';
+        }
+        
         $sql = "DELETE FROM price_master WHERE id = $id";
         if ($conn->query($sql)) {
-            $message = showSuccess("Price record deleted successfully!");
+            if ($conn->affected_rows > 0) {
+                redirectWithSuccess("Price record '$price_name' deleted successfully!");
+            } else {
+                redirectWithError("Price record not found or already deleted!");
+            }
         } else {
-            $message = showError("Error deleting price record: " . $conn->error);
+            redirectWithError("Error deleting price record: " . $conn->error);
         }
     }
 }
@@ -136,7 +147,7 @@ $machines = $conn->query("SELECT id, name, model FROM machines WHERE is_active =
         </div>
     </div>
     
-    <?php echo $message; ?>
+    <?php echo getAllMessages(); ?>
     
     <!-- Search Box -->
     <div class="row mb-4">

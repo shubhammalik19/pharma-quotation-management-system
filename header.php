@@ -3,6 +3,10 @@
 include_once __DIR__ . '/common/conn.php';
 include_once __DIR__ . '/common/functions.php';
 
+// Check if user is already logged in (avoid infinite redirect on login page)
+if (!isset($_SESSION['user_id']) && basename($_SERVER['SCRIPT_NAME']) !== 'login.php') {
+    redirect('auth/login.php');
+}
 // Generalized asset path calculation
 // Count how many directories deep the current script is relative to project root
 $scriptDir = dirname($_SERVER['SCRIPT_NAME']);

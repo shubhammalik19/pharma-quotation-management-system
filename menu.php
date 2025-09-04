@@ -183,6 +183,18 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                 </a>
                             </li>
                             <?php endif; ?>
+                            
+                            <?php if (hasModuleAccess('purchase_invoices')): ?>
+                            <li class="nav-item">
+                                <a class="nav-link <?php echo ($current_page == 'purchase_invoices.php') ? 'active' : ''; ?>" href="/sales/purchase_invoices.php">
+                                    <i class="bi bi-receipt-cutoff"></i>
+                                    <span>Purchase Invoices</span>
+                                    <?php if (hasPermission('purchase_invoices', 'create')): ?>
+                                        <span class="badge badge-warning ms-auto">PI</span>
+                                    <?php endif; ?>
+                                </a>
+                            </li>
+                            <?php endif; ?>
                         </ul>
                     </div>
                     <?php endif; ?>
@@ -342,7 +354,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                             </a>
                                         </li>
                                         <?php endif; ?>
-                                        
+                                        <?php if (hasModuleAccess('reports_purchase_invoices')): ?>
+                                            <li class="nav-item">
+                                                <a class="nav-link <?php echo ($current_page == 'purchase_invoices_filter.php') ? 'active' : ''; ?>" href="/reports/purchase_invoices_filter.php">
+                                                    <i class="bi bi-file-earmark-text"></i>
+                                                    <span>Purchase Invoice Reports</span>
+                                                    <span class="badge badge-info ms-auto">PI</span>
+                                                </a>
+                                            </li>
+                                        <?php endif; ?>
+
                                         <?php if (hasModuleAccess('reports_credit_notes')): ?>
                                         <li class="nav-item">
                                             <a class="nav-link <?php echo ($current_page == 'credit_notes_filter.php') ? 'active' : ''; ?>" href="/reports/credit_notes_filter.php">
@@ -409,6 +430,18 @@ $current_page = basename($_SERVER['PHP_SELF']);
                                     <span>Email Settings</span>
                                 </a>
                             </li>
+                            <?php endif; ?>
+                            
+                            <?php if (isAdmin() || hasModuleAccess('settings')): ?>
+                         <!--  
+                         DONT ACTIVATE IT       
+                         <li class="nav-item">
+                                <a class="nav-link <?php echo ($current_page == 'view_logs.php') ? 'active' : ''; ?>" href="/docs/view_logs.php">
+                                    <i class="bi bi-file-text"></i>
+                                    <span>Document Logs</span>
+                                    <span class="badge badge-info ms-auto"><i class="bi bi-activity"></i></span>
+                                </a>
+                            </li> -->
                             <?php endif; ?>
                         </ul>
                     </div>

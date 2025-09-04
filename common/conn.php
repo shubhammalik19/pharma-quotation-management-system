@@ -1,7 +1,8 @@
 <?php
 # enable error reposting for development
-#error_reporting(E_ALL);
-#ini_set('display_errors', 1);
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
 
 
 /**
@@ -13,6 +14,8 @@
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
+
+
 
 // Base URL Configuration
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
@@ -41,7 +44,6 @@ $host = 'localhost';
 $username = 'root';
 $password = '12345';
 $database = 'quotation_management';
-
 // Create MySQL connection
 $conn = new mysqli($host, $username, $password, $database);
 
@@ -62,12 +64,13 @@ if (!function_exists('url')) {
         return BASE_URL . '/' . ltrim($path, '/');
     }
 }
-
 // Helper function for redirects
 if (!function_exists('redirect')) {
     function redirect($path = '') {
+        #die(url($path));
         header('Location: ' . url($path));
         exit();
     }
 }
+
 ?>

@@ -120,6 +120,7 @@ $page_icons = array(
     'sales_orders' => 'bi-cart-check',
     'purchase_orders' => 'bi-cart-plus',
     'sales_invoices' => 'bi-receipt',
+    'purchase_invoices' => 'bi-receipt-cutoff',
     'credit_notes' => 'bi-arrow-counterclockwise',
     'debit_notes' => 'bi-arrow-clockwise'
 );

@@ -1,5 +1,5 @@
 <?php
-require_once 'common/conn.php';
+require_once './common/conn.php';
 
 // Check if user is already logged in
 if (isset($_SESSION['user_id'])) {

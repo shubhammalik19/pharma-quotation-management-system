@@ -25,6 +25,13 @@ function formatFileSize(bytes) {
 
 $(document).ready(function() {
     
+    // Function to reload page after actions (for manual use if needed)
+    window.reloadAfterAction = function(delay = 1500) {
+        setTimeout(function() {
+            window.location.reload();
+        }, delay);
+    };
+    
     // Autocomplete for Machine Search
     $('#machineSearch').autocomplete({
         source: function(request, response) {
@@ -98,15 +105,19 @@ $(document).ready(function() {
         const partCode = row.find('td:nth-child(4) .badge').text();
         
         // Try to fetch complete machine details via AJAX first
+        console.log('Fetching machine details for ID:', machineId);
         $.ajax({
-            url: 'ajax/get_machine_details.php', // You may need to create this endpoint
+            url: 'ajax/get_machine_details.php',
             type: 'GET',
             data: { id: machineId },
             dataType: 'json',
             success: function(data) {
+                console.log('AJAX response:', data);
                 if(data.success) {
+                    console.log('Filling form with machine data:', data.machine);
                     fillFormWithMachineData(data.machine);
                 } else {
+                    console.log('AJAX failed, using basic data. Error:', data.message);
                     // Fallback to basic data from table
                     fillFormWithBasicData({
                         id: machineId,
@@ -117,7 +128,8 @@ $(document).ready(function() {
                     });
                 }
             },
-            error: function() {
+            error: function(xhr, status, error) {
+                console.log('AJAX error:', status, error);
                 // Fallback to basic data from table
                 fillFormWithBasicData({
                     id: machineId,
@@ -143,10 +155,12 @@ $(document).ready(function() {
         displayAttachment(machine.attachment_filename, machine.attachment_path, machine.attachment_size, machine.id);
         
         setFormReadOnly(true);
-        $('#saveBtn').hide();
-        $('#editBtn').show();
-        $('#deleteBtn').show();
-        $('#updateBtn').hide();
+        
+        // Show/hide buttons with explicit style changes
+        $('#saveBtn').css('display', 'none');
+        $('#editBtn').css('display', 'block');
+        $('#deleteBtn').css('display', 'block');
+        $('#updateBtn').css('display', 'none');
         $('#formTitle').text('Machine Details - ' + machine.name);
         
         $('html, body').animate({ scrollTop: $('#machineForm').offset().top - 100 }, 500);
@@ -160,10 +174,12 @@ $(document).ready(function() {
         $('#part_code').val(machine.part_code);
         
         setFormReadOnly(true);
-        $('#saveBtn').hide();
-        $('#editBtn').show();
-        $('#deleteBtn').show();
-        $('#updateBtn').hide();
+        
+        // Show/hide buttons with explicit style changes
+        $('#saveBtn').css('display', 'none');
+        $('#editBtn').css('display', 'block');
+        $('#deleteBtn').css('display', 'block');
+        $('#updateBtn').css('display', 'none');
         $('#formTitle').text('Machine Details - ' + machine.name);
         
         $('html, body').animate({ scrollTop: $('#machineForm').offset().top - 100 }, 500);
@@ -183,7 +199,7 @@ $(document).ready(function() {
             $('#attachmentIcon').html(icon);
             $('#attachmentName').text(filename);
             $('#attachmentSize').text(formatFileSize(size));
-            $('#attachmentDownload').attr('href', machine.attachment_path);
+            $('#attachmentDownload').attr('href', path);
             $('#currentAttachment').show();
         } else {
             $('#currentAttachment').hide();
@@ -192,16 +208,64 @@ $(document).ready(function() {
 
     $('#editBtn').on('click', function() {
         setFormReadOnly(false);
-        $('#editBtn').hide();
-        $('#updateBtn').show();
+        $('#editBtn').css('display', 'none');
+        $('#updateBtn').css('display', 'block');
         $('#formAction').val('update_machine');
     });
 
     $('#deleteBtn').on('click', function() {
         const machineId = $('#machineId').val();
         const machineName = $('#name').val();
-        if (machineId && confirm('Are you sure you want to delete Machine "' + machineName + '"?')) {
-            window.location.href = 'machines.php?delete=' + machineId;
+        const deleteBtn = $(this);
+        
+        if (machineId) {
+            // Show loading state
+            deleteBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Checking...');
+            
+            // Check dependencies via AJAX
+            $.ajax({
+                url: 'ajax/check_machine_dependencies.php',
+                type: 'GET',
+                data: { id: machineId },
+                dataType: 'json',
+                success: function(response) {
+                    deleteBtn.prop('disabled', false).html('<i class="bi bi-trash"></i> Delete');
+                    
+                    if (response.success) {
+                        if (response.can_delete) {
+                            // Safe to delete
+                            const confirmMessage = `Are you sure you want to delete Machine "${response.machine_name}"?\n\n` +
+                                                 `This action cannot be undone!`;
+                            
+                            if (confirm(confirmMessage)) {
+                                deleteBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Deleting...');
+                                window.location.href = 'machines.php?delete=' + machineId;
+                            }
+                        } else {
+                            // Has dependencies
+                            const dependencyList = response.dependencies.join(', ');
+                            alert(`Cannot delete Machine "${response.machine_name}"!\n\n` +
+                                  `This machine is referenced in:\n${dependencyList}\n\n` +
+                                  `Please remove these references first before deleting the machine.`);
+                        }
+                    } else {
+                        alert('Error checking dependencies: ' + response.message);
+                    }
+                },
+                error: function() {
+                    deleteBtn.prop('disabled', false).html('<i class="bi bi-trash"></i> Delete');
+                    
+                    // Fallback to basic confirmation
+                    const confirmMessage = `Are you sure you want to delete Machine "${machineName}"?\n\n` +
+                                         `This will check for any related records and prevent deletion if dependencies exist.\n\n` +
+                                         `This action cannot be undone!`;
+                    
+                    if (confirm(confirmMessage)) {
+                        deleteBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Deleting...');
+                        window.location.href = 'machines.php?delete=' + machineId;
+                    }
+                }
+            });
         }
     });
 
@@ -234,12 +298,16 @@ $(document).ready(function() {
         $('#currentAttachment').hide();
         $('#removeAttachmentFlag').remove();
         setFormReadOnly(false);
-        $('#saveBtn').show();
-        $('#editBtn, #updateBtn, #deleteBtn').hide();
+        
+        // Show/hide buttons with explicit style changes
+        $('#saveBtn').css('display', 'block');
+        $('#editBtn').css('display', 'none');
+        $('#updateBtn').css('display', 'none');
+        $('#deleteBtn').css('display', 'none');
         $('#formTitle').text('Create Machine');
     }
 
-    // Form validation
+    // Form validation and submission
     $('#machineForm').on('submit', function(e) {
         const machineName = $('#name').val().trim();
         if (!machineName) {
@@ -247,6 +315,70 @@ $(document).ready(function() {
             alert('Machine name is required!');
             return false;
         }
+        
+        // Add loading state to submit button
+        const submitBtn = $(this).find('button[type="submit"]:visible');
+        submitBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Processing...');
+        
+        // The form will submit normally and redirect via PHP
+        return true;
+    });
+
+    // Enhanced delete confirmation for table delete links
+    $(document).on('click', 'a[href*="delete="]', function(e) {
+        e.preventDefault();
+        const deleteUrl = $(this).attr('href');
+        const machineId = deleteUrl.split('delete=')[1];
+        const machineName = $(this).closest('tr').find('td:nth-child(1) strong').text();
+        const deleteLink = $(this);
+        
+        // Show loading state
+        const originalHtml = deleteLink.html();
+        deleteLink.html('<i class="bi bi-hourglass-split"></i>').addClass('disabled');
+        
+        // Check dependencies via AJAX
+        $.ajax({
+            url: 'ajax/check_machine_dependencies.php',
+            type: 'GET',
+            data: { id: machineId },
+            dataType: 'json',
+            success: function(response) {
+                deleteLink.html(originalHtml).removeClass('disabled');
+                
+                if (response.success) {
+                    if (response.can_delete) {
+                        // Safe to delete
+                        const confirmMessage = `Are you sure you want to delete Machine "${response.machine_name}"?\n\n` +
+                                             `This action cannot be undone!`;
+                        
+                        if (confirm(confirmMessage)) {
+                            deleteLink.html('<i class="bi bi-hourglass-split"></i>').addClass('disabled');
+                            window.location.href = deleteUrl;
+                        }
+                    } else {
+                        // Has dependencies
+                        const dependencyList = response.dependencies.join(', ');
+                        alert(`Cannot delete Machine "${response.machine_name}"!\n\n` +
+                              `This machine is referenced in:\n${dependencyList}\n\n` +
+                              `Please remove these references first before deleting the machine.`);
+                    }
+                } else {
+                    alert('Error checking dependencies: ' + response.message);
+                }
+            },
+            error: function() {
+                deleteLink.html(originalHtml).removeClass('disabled');
+                
+                // Fallback to basic confirmation
+                const confirmMessage = `Are you sure you want to delete Machine "${machineName}"?\n\n` +
+                                     `This will check for any related records and prevent deletion if dependencies exist.\n\n` +
+                                     `This action cannot be undone!`;
+                
+                if (confirm(confirmMessage)) {
+                    window.location.href = deleteUrl;
+                }
+            }
+        });
     });
 
     // File input change handler

@@ -3,7 +3,6 @@ include '../header.php';
 checkLogin();
 include '../menu.php';
 
-$message = '';
 $prefix = "CN-";
 
 // Generate Credit Note Number
@@ -45,7 +44,7 @@ if ($_POST) {
             if ($customer_id > 0) {
                 $check_customer = $conn->query("SELECT id, company_name, address, gst_no FROM customers WHERE id = $customer_id AND (entity_type = 'customer' OR entity_type = 'both')");
                 if ($check_customer->num_rows === 0) {
-                    $message = showError('Selected customer does not exist or is not valid.');
+                    redirectWithError('Selected customer does not exist or is not valid.');
                 } else {
                     $customer_data = $check_customer->fetch_assoc();
                     $customer_name = $customer_data['company_name'];
@@ -53,18 +52,28 @@ if ($_POST) {
                     $customer_gstin = $customer_data['gst_no'] ?? '';
                 }
             } else {
-                $message = showError('Please select a valid customer.');
+                redirectWithError('Please select a valid customer.');
             }
             
-            if (empty($message)) {
+            // Start transaction
+            $conn->begin_transaction();
+            
+            try {
                 $sql = "INSERT INTO credit_notes (credit_note_number, customer_id, customer_name, customer_address, customer_gstin, original_invoice, credit_date, total_amount, reason, status, created_by) 
                         VALUES ('$cn_number', $customer_id, '$customer_name', '$customer_address', '$customer_gstin', '$original_invoice', '$credit_date', $total_amount, '$reason', '$status', {$_SESSION['user_id']})";
                 
-                if ($conn->query($sql)) {
-                    $message = showSuccess('Credit Note created successfully!');
-                } else {
-                    $message = showError('Error creating credit note: ' . $conn->error);
+                if (!$conn->query($sql)) {
+                    throw new Exception('Error creating credit note: ' . $conn->error);
                 }
+                
+                // Commit transaction
+                $conn->commit();
+                redirectWithSuccess('Credit Note created successfully!');
+                
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                redirectWithError($e->getMessage());
             }
         } elseif ($_POST['action'] === 'update_cn' && hasPermission('credit_notes', 'edit')) {
             $cn_id = intval($_POST['id']);
@@ -84,7 +93,7 @@ if ($_POST) {
             if ($customer_id > 0) {
                 $check_customer = $conn->query("SELECT id, company_name, address, gst_no FROM customers WHERE id = $customer_id AND (entity_type = 'customer' OR entity_type = 'both')");
                 if ($check_customer->num_rows === 0) {
-                    $message = showError('Selected customer does not exist or is not valid.');
+                    redirectWithError('Selected customer does not exist or is not valid.');
                 } else {
                     $customer_data = $check_customer->fetch_assoc();
                     $customer_name = $customer_data['company_name'];
@@ -92,10 +101,13 @@ if ($_POST) {
                     $customer_gstin = $customer_data['gst_no'] ?? '';
                 }
             } else {
-                $message = showError('Please select a valid customer.');
+                redirectWithError('Please select a valid customer.');
             }
             
-            if (empty($message)) {
+            // Start transaction
+            $conn->begin_transaction();
+            
+            try {
                 $sql = "UPDATE credit_notes SET 
                         credit_note_number = '$cn_number', 
                         customer_id = $customer_id,
@@ -109,11 +121,18 @@ if ($_POST) {
                         status = '$status' 
                         WHERE id = $cn_id";
                 
-                if ($conn->query($sql)) {
-                    $message = showSuccess('Credit Note updated successfully!');
-                } else {
-                    $message = showError('Error updating credit note: ' . $conn->error);
+                if (!$conn->query($sql)) {
+                    throw new Exception('Error updating credit note: ' . $conn->error);
                 }
+                
+                // Commit transaction
+                $conn->commit();
+                redirectWithSuccess('Credit Note updated successfully!');
+                
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                redirectWithError($e->getMessage());
             }
         }
     }
@@ -122,15 +141,27 @@ if ($_POST) {
 // Handle delete
 if (isset($_GET['delete'])) {
     if (!hasPermission('credit_notes', 'delete')) {
-        $message = showError("You don't have permission to delete credit notes!");
+        redirectWithError("You don't have permission to delete credit notes!");
     } else {
         $id = (int)$_GET['delete'];
         
-        $sql = "DELETE FROM credit_notes WHERE id = $id";
-        if ($conn->query($sql)) {
-            $message = showSuccess("Credit Note deleted successfully!");
-        } else {
-            $message = showError("Error deleting credit note: " . $conn->error);
+        // Start transaction
+        $conn->begin_transaction();
+        
+        try {
+            $sql = "DELETE FROM credit_notes WHERE id = $id";
+            if (!$conn->query($sql)) {
+                throw new Exception("Error deleting credit note: " . $conn->error);
+            }
+            
+            // Commit transaction
+            $conn->commit();
+            redirectWithSuccess("Credit Note deleted successfully!");
+            
+        } catch (Exception $e) {
+            // Rollback transaction on error
+            $conn->rollback();
+            redirectWithError($e->getMessage());
         }
     }
 }
@@ -172,7 +203,7 @@ $cn_result = $conn->query($cn_sql);
         </div>
     </div>
     
-    <?php echo $message; ?>
+    <?php echo getAllMessages(); ?>
     
     <!-- Search Box -->
     <div class="row mb-3">

@@ -238,6 +238,28 @@ include 'menu.php';
                 </div>
             </div>
             <?php endif; ?>
+            
+            <!-- Purchase Invoice Reports -->
+            <?php if (hasModuleAccess('reports_purchase_invoices')): ?>
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="card report-card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="report-icon mb-3">
+                            <i class="bi bi-receipt-cutoff display-4 text-dark"></i>
+                        </div>
+                        <h5 class="card-title">Purchase Invoices</h5>
+                        <p class="card-text text-muted">Purchase invoice management and vendor payment analysis</p>
+                        <div class="d-flex justify-content-center gap-2">
+                            <span class="badge bg-dark">PI</span>
+                            <span class="text-muted">Date, Vendor, Machine filters</span>
+                        </div>
+                        <a href="reports/purchase_invoices_filter.php" class="btn btn-dark mt-3">
+                            <i class="bi bi-bar-chart"></i> View Reports
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>

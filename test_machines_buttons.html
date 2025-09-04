@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Machines Buttons</title>
+    <link href="assets/css/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="container mt-4">
+        <h3>Test Machine Edit Buttons</h3>
+        
+        <!-- Form with buttons -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-gear-wide"></i> <span id="formTitle">Create Machine</span></h5>
+            </div>
+            <div class="card-body">
+                <form id="machineForm">
+                    <input type="hidden" name="action" value="create_machine" id="formAction">
+                    <input type="hidden" name="id" id="machineId">
+                    
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Machine Name *</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="model" class="form-label">Model</label>
+                        <input type="text" class="form-control" id="model" name="model">
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-success" id="saveBtn"><i class="bi bi-plus-circle"></i> Save Machine</button>
+                        <button type="submit" class="btn btn-primary" id="updateBtn" style="display:none;"><i class="bi bi-check"></i> Update</button>
+                        <button type="button" class="btn btn-warning" id="editBtn" style="display:none;"><i class="bi bi-pencil"></i> Edit</button>
+                        <button type="button" class="btn btn-danger" id="deleteBtn" style="display:none;"><i class="bi bi-trash"></i> Delete</button>
+                        <button type="button" class="btn btn-secondary" id="resetBtn"><i class="bi bi-arrow-clockwise"></i> Reset Form</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Test Table -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Test Machine List</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Model</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Test Machine</strong></td>
+                            <td>Model 123</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-primary edit-machine" data-id="1">
+                                    <i class="bi bi-pencil"></i> View/Edit
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Test functions
+        function setFormReadOnly(readonly) {
+            const fields = ['#name', '#model'];
+            fields.forEach(field => {
+                $(field).prop('readonly', readonly);
+            });
+        }
+        
+        function fillFormWithMachineData(machine) {
+            console.log('fillFormWithMachineData called with:', machine);
+            $('#machineId').val(machine.id);
+            $('#name').val(machine.name);
+            $('#model').val(machine.model);
+            
+            setFormReadOnly(true);
+            console.log('Setting buttons: hiding saveBtn, showing editBtn and deleteBtn');
+            $('#saveBtn').hide();
+            $('#editBtn').show();
+            $('#deleteBtn').show();
+            $('#updateBtn').hide();
+            $('#formTitle').text('Machine Details - ' + machine.name);
+        }
+        
+        // Edit machine from table
+        $(document).on('click', '.edit-machine', function() {
+            const machineId = $(this).data('id');
+            console.log('Edit button clicked for machine ID:', machineId);
+            
+            // Test data
+            const testMachine = {
+                id: machineId,
+                name: 'Test Machine',
+                model: 'Model 123'
+            };
+            
+            fillFormWithMachineData(testMachine);
+        });
+        
+        $('#editBtn').on('click', function() {
+            console.log('Edit button clicked');
+            setFormReadOnly(false);
+            $('#editBtn').hide();
+            $('#updateBtn').show();
+            $('#formAction').val('update_machine');
+            console.log('Form action set to update_machine, updateBtn shown');
+        });
+        
+        $('#resetBtn').on('click', function() {
+            $('#machineForm')[0].reset();
+            $('#machineId').val('');
+            $('#formAction').val('create_machine');
+            setFormReadOnly(false);
+            $('#saveBtn').show();
+            $('#editBtn, #updateBtn, #deleteBtn').hide();
+            $('#formTitle').text('Create Machine');
+        });
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Sep 01, 2025 at 12:07 PM
+-- Generation Time: Sep 04, 2025 at 01:37 AM
 -- Server version: 10.11.11-MariaDB
 -- PHP Version: 8.2.29
 
@@ -79,7 +79,7 @@ CREATE TABLE `credit_notes` (
 --
 
 INSERT INTO `credit_notes` (`id`, `credit_note_number`, `customer_id`, `customer_name`, `customer_address`, `customer_gstin`, `original_invoice`, `credit_date`, `total_amount`, `reason`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
-(1, 'CN-2025-ABC-3763', 6, 'ABC Chemical Suppliers Pvt Ltd', NULL, NULL, 'ASDAS', '2025-08-31', 10000.00, 'ASDSD', 'draft', 1, '2025-08-31 11:47:11', '2025-08-31 11:47:11');
+(1, 'CN-2025-ABC-3763', 6, 'ABC Chemical Suppliers Pvt Ltd', '123 Industrial Area, Chemical Park', '27ABCCS1234A1Z5', 'ASDAS', '2025-08-31', 10000.00, 'ASDSD', 'draft', 1, '2025-08-31 11:47:11', '2025-09-04 01:15:45');
 
 -- --------------------------------------------------------
 
@@ -109,13 +109,8 @@ CREATE TABLE `customers` (
 
 INSERT INTO `customers` (`id`, `entity_type`, `company_name`, `contact_person`, `phone`, `email`, `gst_no`, `address`, `city`, `state`, `pincode`, `created_at`, `updated_at`) VALUES
 (2, 'both', 'ABC Pharmaceuticals Ltd', 'Dr. Rajesh Kumar', '+91 9876543210', 'info@abcpharma.com', NULL, '683 SANJAY ENACLAVE', 'Mumbai', 'Delhi', '110059', '2025-08-28 12:31:21', '2025-09-01 06:00:16'),
-(3, 'both', 'XYZ Biotech Solutions', 'Ms. Priya Sharma', '+91 8765432109', 'contact@xyzbiotech.com', '27MNOPQ9012R1S5', 'Sector 22, Phase III', 'Pune', 'Maharashtra', '411057', '2025-08-28 12:31:21', '2025-08-31 10:14:18'),
 (6, 'both', 'ABC Chemical Suppliers Pvt Ltd', 'Mr. Rajesh Kumar', '+91 9876543210', 'rajesh@abcchemicals.com', '27ABCCS1234A1Z5', '123 Industrial Area, Chemical Park', 'Mumbai', 'Maharashtra', '400001', '2025-08-30 16:01:38', '2025-08-31 10:14:18'),
-(7, 'both', 'XYZ Pharmaceuticals Ltd', 'Dr. Priya Sharma', '+91 8765432109', 'priya@xyzpharma.com', '29XYZPL1234B2Z6', '456 Medical District, Pharma Hub', 'Bangalore', 'Karnataka', '560001', '2025-08-30 16:01:48', '2025-08-31 10:14:18'),
-(8, 'both', 'Universal Medical Equipment Co', 'Ms. Anjali Patel', '+91 7654321098', 'anjali@universal-med.com', '24UMEC1234C3Z7', '789 Equipment Plaza, Medical Zone', 'Ahmedabad', 'Gujarat', '380001', '2025-08-30 16:01:59', '2025-08-30 16:01:59'),
-(9, 'vendor', 'Steel Components Ltd', 'Mr. Rakesh Singh', '+91 9123456789', 'sales@steelcomponents.com', '06ABCDE1234F1Z6', 'Industrial Area Phase 1', 'Chandigarh', 'Chandigarh', '160002', '2025-08-31 10:14:18', '2025-08-31 10:14:18'),
-(10, 'vendor', 'Automation Systems Pvt Ltd', 'Ms. Anjali Verma', '+91 9234567890', 'info@automationsys.com', NULL, '', 'Mumbai', 'Maharashtra', '', '2025-08-31 10:14:18', '2025-09-01 06:00:12'),
-(11, 'vendor', 'Precision Engineering Co', 'Mr. Suresh Kumar', '+91 9345678901', 'contact@precisioneng.com', '29MNOPQ9012R1S6', 'Electronic City', 'Bangalore', 'Karnataka', '560100', '2025-08-31 10:14:18', '2025-08-31 10:14:18');
+(7, 'both', 'XYZ Pharmaceuticals Ltd', 'Dr. Priya Sharma', '+91 8765432109', 'priya@xyzpharma.com', '29XYZPL1234B2Z6', '456 Medical District, Pharma Hub', 'Bangalore', 'Karnataka', '560001', '2025-08-30 16:01:48', '2025-08-31 10:14:18');
 
 -- --------------------------------------------------------
 
@@ -145,7 +140,8 @@ CREATE TABLE `debit_notes` (
 
 INSERT INTO `debit_notes` (`id`, `debit_note_number`, `vendor_name`, `vendor_address`, `vendor_gstin`, `original_invoice`, `debit_date`, `total_amount`, `reason`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
 (1, 'DN-2025-ABC-9272', 'ABC Chemical Suppliers Pvt Ltd', '123 Industrial Area, Chemical Park', '27ABCCS1234A1Z5', 'ASDASD', '2025-08-31', 1000.00, 'ASDASD', 'draft', 1, '2025-08-31 11:55:10', '2025-08-31 11:55:10'),
-(2, 'DN-2025-ABC-6426', 'ABC Chemical Suppliers Pvt Ltd', '123 Industrial Area, Chemical Park', '27ABCCS1234A1Z5', '11asdas', '2025-09-01', 1000.00, 'adsads', 'draft', 1, '2025-09-01 07:47:23', '2025-09-01 07:47:23');
+(2, 'DN-2025-ABC-6426', 'ABC Chemical Suppliers Pvt Ltd', '123 Industrial Area, Chemical Park', '27ABCCS1234A1Z5', '11asdas', '2025-09-01', 1000.00, 'adsads', 'draft', 1, '2025-09-01 07:47:23', '2025-09-01 07:47:23'),
+(3, 'DN-2025-ABC-7106', 'ABC Pharmaceuticals Ltd', '', '', '', '2025-09-04', 1000.00, 'asdads', 'draft', 1, '2025-09-04 01:20:04', '2025-09-04 01:25:30');
 
 -- --------------------------------------------------------
 
@@ -191,15 +187,11 @@ CREATE TABLE `machines` (
 --
 
 INSERT INTO `machines` (`id`, `name`, `model`, `category`, `description`, `tech_specs`, `attachment_filename`, `attachment_path`, `attachment_size`, `attachment_type`, `part_code`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'Rapid Mixer Granulator', 'RMG-500', 'Granulation Equipment', 'High-speed granulation equipment for pharmaceutical industry', 'Three-blade impeller, four-blade chopper, pneumatic top lid & discharge, safety proxies, slow/fast speed, contact parts SS316, non-contact SS304, VFD for impeller & chopper, manual push-button panel, amp meters, air purging housings. Capacity: 500 kg batch', NULL, NULL, NULL, NULL, 'RMG500', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(2, 'Fluid Bed Processor (Top Spray)', 'FBD-500', 'Drying Equipment', 'Fluid bed dryer with top spray coating capability', 'Single piece construction, 2× product containers with trolleys, safe earth mechanism, auto bag up/down & shaking, sampling port, SS316 contact / SS304 non-contact, double-skin AHU with pre+micro filters & steam coil. Operating capacity: 300-400 kg', NULL, NULL, NULL, NULL, 'FBD500', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(3, 'Octagonal Blender', 'OCT-2000L', 'Blending Equipment', 'Octagonal blender for homogeneous mixing', 'SS316 contact / SS304 non-contact, internal mirror, external matt. Working volume ~1500 L (~750 kg @ BD 0.5), VFD-driven, 5-12 RPM, 10 HP motor, safety railing. Charging/discharge ports in SS316, 12″ butterfly valve', NULL, NULL, NULL, NULL, 'OCT2000', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
+(1, 'Rapid Mixer Granulator', 'RMG-500', 'Granulation Equipment', 'High-speed granulation equipment for pharmaceutical industry', 'Three-blade impeller, four-blade chopper, pneumatic top lid &amp;amp;amp;amp;amp;amp;amp; discharge, safety proxies, slow/fast speed, contact parts SS316, non-contact SS304, VFD for impeller &amp;amp;amp;amp;amp;amp;amp; chopper, manual push-button panel, amp meters, air purging housings. Capacity: 500 kg batch', 'RMG-500_Technical_Specification.pdf', 'uploads/machines/rmg_500_specs.pdf', 776, 'application/pdf', 'RMG500', 1, '2025-08-28 12:31:21', '2025-09-04 01:28:19'),
+(2, 'Fluid Bed Processor (Top Spray)', 'FBD-500', 'Drying Equipment', 'Fluid bed dryer with top spray coating capability', 'Single piece construction, 2× product containers with trolleys, safe earth mechanism, auto bag up/down &amp; shaking, sampling port, SS316 contact / SS304 non-contact, double-skin AHU with pre+micro filters &amp; steam coil. Operating capacity: 300-400 kg', NULL, NULL, NULL, NULL, 'FBD500', 1, '2025-08-28 12:31:21', '2025-09-03 17:21:19'),
+(3, 'Octagonal Blender', 'OCT-2000L', 'Blending Equipment', 'Octagonal blender for homogeneous mixing', 'SS316 contact / SS304 non-contact, internal mirror, external matt. Working volume ~1500 L (~750 kg @ BD 0.5), VFD-driven, 5-12 RPM, 10 HP motor, safety railing. Charging/discharge ports in SS316, 12″ butterfly valve', 'OCT-2000L_Technical_Specification.pdf', 'uploads/machines/oct_2000l_specs.pdf', 824, 'application/pdf', 'OCT2000', 1, '2025-08-28 12:31:21', '2025-09-03 15:03:34'),
 (4, 'Vibro Sifter', 'VS-48', 'Sieving Equipment', '48 inch vibro sifter for particle separation', 'GMP design, smooth 180-grit external, 180+ internal finish, food-grade gaskets. Center-flange vibro motor (approx. 2 HP), 12 springs, nylon castors, silicon-moulded screen. Dimensions: Ø1220 mm', NULL, NULL, NULL, NULL, 'VS48', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(5, 'Colloid Mill', 'CM-500', 'Size Reduction', 'Colloid mill for particle size reduction', 'SS316 contact / SS304 non-contact, conical stator/rotor with fine gap adjustment, water-jacketed hopper. Vertical belt-driven rotor, 5 HP @ 2880 RPM, outputs ~150–1000 L/h, hopper ~15 L', NULL, NULL, NULL, NULL, 'CM500', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(6, 'Vacuum Transfer System', 'VTS-500', 'Material Handling', 'Pneumatic vacuum transfer system', 'SS316 contact parts, SS304 non-contact, food-grade transparent pipe, vacuum pump, standard pneumatics, woven filter, 7.5 HP motor. Complete with structure and piping', NULL, NULL, NULL, NULL, 'VTS500', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(8, 'CAT KILLER', 'MCAT', 'ASDASD', 'ASDASD', 'ASDASD', NULL, NULL, NULL, NULL, 'ASDASD', 1, '2025-08-28 17:06:07', '2025-08-28 17:06:07'),
-(9, 'PUSSY LOVER', 'PUSSY', '', 'ASD', 'ADS', '', '', NULL, '', 'AD', 1, '2025-08-30 06:15:14', '2025-08-30 06:15:14'),
-(10, 'ASDASDDSA', 'ASDAS', 'ASD', '', '', NULL, NULL, NULL, NULL, 'ASD', 1, '2025-09-01 06:17:28', '2025-09-01 06:17:44');
+(5, 'Colloid Mill', 'CM-500', 'Size Reduction', 'Colloid mill for particle size reduction', 'SS316 contact / SS304 non-contact, conical stator/rotor with fine gap adjustment, water-jacketed hopper. Vertical belt-driven rotor, 5 HP @ 2880 RPM, outputs ~150–1000 L/h, hopper ~15 L', NULL, NULL, NULL, NULL, 'CM500', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21');
 
 -- --------------------------------------------------------
 
@@ -353,7 +345,8 @@ INSERT INTO `permissions` (`id`, `name`, `display_name`, `description`, `module`
 (159, 'debit_notes.edit', 'Edit Debit Notes', 'Modify existing debit notes', 'debit_notes', 'edit', 1, '2025-09-01 09:01:54'),
 (160, 'debit_notes.delete', 'Delete Debit Notes', 'Remove debit notes from system', 'debit_notes', 'delete', 1, '2025-09-01 09:01:54'),
 (161, 'debit_notes.send', 'Send Debit Notes', 'Email debit notes to customers', 'debit_notes', 'send', 1, '2025-09-01 09:01:54'),
-(162, 'debit_notes.print', 'Print Debit Notes', 'Generate PDF debit notes', 'debit_notes', 'print', 1, '2025-09-01 09:01:54');
+(162, 'debit_notes.print', 'Print Debit Notes', 'Generate PDF debit notes', 'debit_notes', 'print', 1, '2025-09-01 09:01:54'),
+(163, '', '', 'View purchase invoices', 'purchase_invoices', 'view', 1, '2025-09-03 16:36:52');
 
 -- --------------------------------------------------------
 
@@ -382,9 +375,73 @@ INSERT INTO `price_master` (`id`, `machine_id`, `price`, `valid_from`, `valid_to
 (3, 3, 890000.00, '2025-01-01', '2025-12-31', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (4, 4, 215000.00, '2025-01-01', '2025-12-31', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (5, 5, 365000.00, '2025-01-01', '2025-12-31', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(6, 6, 680000.00, '2025-01-01', '2025-12-31', 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(7, 5, 1000000.00, '2025-08-28', '2026-08-28', 1, '2025-08-28 17:02:58', '2025-08-28 17:02:58'),
-(9, 4, 1000.00, '2026-08-28', '2027-08-28', 1, '2025-08-28 17:07:48', '2025-08-28 17:07:48');
+(7, 5, 1000000.00, '2025-08-28', '2026-08-28', 1, '2025-08-28 17:02:58', '2025-08-28 17:02:58');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `purchase_invoices`
+--
+
+CREATE TABLE `purchase_invoices` (
+  `id` int(11) NOT NULL,
+  `pi_number` varchar(50) NOT NULL,
+  `vendor_id` int(11) DEFAULT NULL,
+  `vendor_name` varchar(255) NOT NULL,
+  `purchase_order_id` int(11) DEFAULT NULL,
+  `purchase_order_number` varchar(50) DEFAULT NULL,
+  `hsn_code` varchar(10) DEFAULT NULL,
+  `pi_date` date NOT NULL,
+  `due_date` date DEFAULT NULL,
+  `status` enum('draft','pending','paid','partially_paid','overdue','cancelled') DEFAULT 'draft',
+  `notes` text DEFAULT NULL,
+  `total_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `discount_percentage` decimal(5,2) DEFAULT 0.00,
+  `discount_amount` decimal(12,2) DEFAULT 0.00,
+  `final_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `purchase_invoices`
+--
+
+INSERT INTO `purchase_invoices` (`id`, `pi_number`, `vendor_id`, `vendor_name`, `purchase_order_id`, `purchase_order_number`, `hsn_code`, `pi_date`, `due_date`, `status`, `notes`, `total_amount`, `discount_percentage`, `discount_amount`, `final_total`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 'PI-2025-00001', 6, 'ABC Chemical Suppliers Pvt Ltd', 2, NULL, NULL, '2025-09-03', '2025-10-03', 'draft', '', 3021000.00, 0.00, 0.00, 3021000.00, 1, '2025-09-03 16:18:40', '2025-09-03 16:18:40'),
+(2, 'PI-2025-00002', 2, 'ABC Pharmaceuticals Ltd', NULL, NULL, NULL, '2025-09-03', '2025-10-03', 'draft', '', 1000000.00, 0.00, 0.00, 1000000.00, 1, '2025-09-03 16:33:43', '2025-09-03 16:33:43');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `purchase_invoice_items`
+--
+
+CREATE TABLE `purchase_invoice_items` (
+  `id` int(11) NOT NULL,
+  `pi_id` int(11) NOT NULL,
+  `item_type` enum('machine','spare') NOT NULL,
+  `item_id` int(11) NOT NULL,
+  `item_name` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `hsn_code` varchar(30) DEFAULT NULL,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `total_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `machine_id` int(11) DEFAULT NULL COMMENT 'For spares attached to machines',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `purchase_invoice_items`
+--
+
+INSERT INTO `purchase_invoice_items` (`id`, `pi_id`, `item_type`, `item_id`, `item_name`, `description`, `hsn_code`, `quantity`, `unit_price`, `total_price`, `machine_id`, `created_at`, `updated_at`) VALUES
+(1, 1, 'machine', 2, 'Fluid Bed Processor (Top Spray)', '', NULL, 1, 3020000.00, 3020000.00, NULL, '2025-09-03 16:18:40', '2025-09-03 16:18:40'),
+(2, 1, 'spare', 11, 'asddsa', '', NULL, 1, 1000.00, 1000.00, 2, '2025-09-03 16:18:40', '2025-09-03 16:18:40'),
+(3, 2, 'machine', 5, 'Colloid Mill', '', NULL, 1, 1000000.00, 1000000.00, NULL, '2025-09-03 16:33:43', '2025-09-03 16:33:43');
 
 -- --------------------------------------------------------
 
@@ -420,7 +477,8 @@ CREATE TABLE `purchase_orders` (
 --
 
 INSERT INTO `purchase_orders` (`id`, `po_number`, `vendor_id`, `vendor_name`, `sales_order_id`, `sales_order_number`, `quotation_id`, `quotation_number`, `hsn_code`, `po_date`, `due_date`, `status`, `notes`, `total_amount`, `discount_percentage`, `discount_amount`, `final_total`, `created_by`, `created_at`, `updated_at`) VALUES
-(2, 'PO-2025-00001', 6, 'ABC Chemical Suppliers Pvt Ltd', NULL, NULL, NULL, NULL, NULL, '2025-09-01', '2025-09-16', 'sent', '', 890000.00, 0.00, 0.00, 890000.00, 1, '2025-09-01 07:31:13', '2025-09-01 07:32:10');
+(2, 'PO-2025-00001', 6, 'ABC Chemical Suppliers Pvt Ltd', NULL, NULL, NULL, NULL, NULL, '2025-09-01', '2025-09-16', 'sent', '', 890000.00, 0.00, 0.00, 890000.00, 1, '2025-09-01 07:31:13', '2025-09-01 07:32:10'),
+(3, 'PO-2025-00002', 6, 'ABC Chemical Suppliers Pvt Ltd', 3, NULL, NULL, NULL, NULL, '2025-09-03', '2025-09-18', 'draft', '', 890000.00, 0.00, 0.00, 890000.00, 1, '2025-09-03 17:51:36', '2025-09-03 17:51:36');
 
 -- --------------------------------------------------------
 
@@ -448,7 +506,8 @@ CREATE TABLE `purchase_order_items` (
 --
 
 INSERT INTO `purchase_order_items` (`id`, `po_id`, `item_type`, `item_id`, `item_name`, `description`, `hsn_code`, `quantity`, `unit_price`, `total_price`, `created_at`, `updated_at`) VALUES
-(9, 2, 'machine', 3, 'Octagonal Blender - Machine', 'HSN:', NULL, 1, 890000.00, 890000.00, '2025-09-01 12:06:29', '2025-09-01 12:06:29');
+(10, 2, 'machine', 3, 'Octagonal Blender - Machine', 'HSN:', '', 1, 890000.00, 890000.00, '2025-09-03 17:51:22', '2025-09-03 17:51:22'),
+(11, 3, 'machine', 3, 'Octagonal Blender - Machine', 'HSN:', '', 1, 890000.00, 890000.00, '2025-09-03 17:51:36', '2025-09-03 17:51:36');
 
 -- --------------------------------------------------------
 
@@ -483,7 +542,9 @@ CREATE TABLE `quotations` (
 --
 
 INSERT INTO `quotations` (`id`, `prefix`, `max_no`, `quotation_number`, `customer_id`, `quotation_date`, `valid_until`, `total_amount`, `discount_percentage`, `discount_amount`, `tax_amount`, `grand_total`, `status`, `enquiry_ref`, `revision_no`, `prepared_by`, `notes`, `created_at`, `updated_at`) VALUES
-(3, 'QUO-', 1, 'QUO-2025-00001', 6, '2025-09-01', '2025-10-01', 890000.00, 0.00, 0.00, 0.00, 890000.00, 'pending', '100', 1, 'Sales Department', '', '2025-09-01 06:29:02', '2025-09-01 06:29:02');
+(3, 'QUO-', 1, 'QUO-2025-00001', 6, '2025-09-01', '2025-10-01', 890000.00, 0.00, 0.00, 0.00, 890000.00, 'pending', '100', 1, 'Sales Department', '', '2025-09-01 06:29:02', '2025-09-01 06:29:02'),
+(4, 'QUO-', 2, 'QUO-2025-00002', 2, '2025-09-03', '2025-10-03', 890000.00, 0.00, 0.00, 0.00, 890000.00, 'pending', 'asdasd', 1, 'Sales Department', '', '2025-09-03 17:39:56', '2025-09-03 17:39:56'),
+(5, 'QUO-', 3, 'QUO-2025-00003', 6, '2025-09-04', '2025-10-04', 2772000.00, 0.00, 0.00, 0.00, 2772000.00, 'pending', '', 1, 'Sales Department', '', '2025-09-04 01:10:45', '2025-09-04 01:10:45');
 
 -- --------------------------------------------------------
 
@@ -511,7 +572,9 @@ CREATE TABLE `quotation_items` (
 --
 
 INSERT INTO `quotation_items` (`id`, `quotation_id`, `item_type`, `item_id`, `quantity`, `unit_price`, `total_price`, `sl_no`, `description`, `specifications`, `created_at`, `updated_at`) VALUES
-(3, 3, 'machine', 3, 1, 890000.00, 890000.00, 1, 'Octagonal Blender - Machine', '', '2025-09-01 06:29:02', '2025-09-01 06:29:02');
+(3, 3, 'machine', 3, 1, 890000.00, 890000.00, 1, 'Octagonal Blender - Machine', '', '2025-09-01 06:29:02', '2025-09-01 06:29:02'),
+(5, 4, 'machine', 3, 1, 890000.00, 890000.00, 1, 'Octagonal Blender - Machine', '', '2025-09-03 17:41:11', '2025-09-03 17:41:11'),
+(8, 5, 'machine', 1, 1, 2772000.00, 2772000.00, 1, 'Rapid Mixer Granulator - Machine', '', '2025-09-04 01:32:07', '2025-09-04 01:32:07');
 
 -- --------------------------------------------------------
 
@@ -1145,7 +1208,8 @@ CREATE TABLE `sales_invoices` (
 --
 
 INSERT INTO `sales_invoices` (`id`, `invoice_number`, `customer_id`, `customer_name`, `customer_address`, `customer_gstin`, `customer_contact`, `purchase_order_id`, `invoice_date`, `due_date`, `subtotal`, `discount_percentage`, `discount_amount`, `tax_percentage`, `tax_amount`, `final_total`, `total_amount`, `status`, `notes`, `created_by`, `created_at`, `updated_at`) VALUES
-(3, 'INV-2025-00871', 6, 'ABC Chemical Suppliers Pvt Ltd', '123 Industrial Area, Chemical Park', '27ABCCS1234A1Z5', '+91 9876543210', 1, '2025-08-31', '2025-09-30', 150000.00, 0.00, 0.00, 18.00, 27000.00, 177000.00, 177000.00, 'draft', '', 1, '2025-08-31 11:36:07', '2025-08-31 11:36:07');
+(3, 'INV-2025-00871', 6, 'ABC Chemical Suppliers Pvt Ltd', '123 Industrial Area, Chemical Park', '27ABCCS1234A1Z5', '+91 9876543210', 3, '2025-08-31', '2025-09-30', 890000.00, 0.00, 0.00, 18.00, 160200.00, 1050200.00, 1050200.00, 'sent', '', 1, '2025-08-31 11:36:07', '2025-09-03 14:52:20'),
+(4, 'INV-2025-00872', 6, 'ABC Chemical Suppliers Pvt Ltd', '123 Industrial Area, Chemical Park', '27ABCCS1234A1Z5', '+91 9876543210', 4, '2025-09-03', '2025-10-03', 890000.00, 0.00, 0.00, 18.00, 160200.00, 1050200.00, 1050200.00, 'sent', '', 1, '2025-09-03 17:56:28', '2025-09-04 01:09:41');
 
 -- --------------------------------------------------------
 
@@ -1173,8 +1237,8 @@ CREATE TABLE `sales_invoice_items` (
 --
 
 INSERT INTO `sales_invoice_items` (`id`, `invoice_id`, `item_type`, `item_id`, `item_name`, `description`, `hsn_code`, `quantity`, `unit`, `unit_price`, `gst_rate`, `total_price`) VALUES
-(3, 3, 'spare', 4, 'Impeller Blade Set', 'Three-blade impeller for RMG-500', '', 3.00, 'Nos', 25000.00, 18.00, 75000.00),
-(4, 3, 'spare', 5, 'Chopper Blade', 'Four-blade chopper for RMG-500', '', 5.00, 'Nos', 15000.00, 18.00, 75000.00);
+(7, 3, 'machine', 3, 'Octagonal Blender', 'Octagonal Blender - Machine', NULL, 1.00, 'Nos', 890000.00, 18.00, 890000.00),
+(9, 4, 'machine', 3, 'Octagonal Blender', 'Octagonal Blender - Machine', NULL, 1.00, 'Nos', 890000.00, 18.00, 890000.00);
 
 -- --------------------------------------------------------
 
@@ -1210,7 +1274,8 @@ CREATE TABLE `sales_orders` (
 --
 
 INSERT INTO `sales_orders` (`id`, `so_number`, `customer_id`, `customer_name`, `customer_address`, `customer_gstin`, `customer_contact`, `quotation_id`, `quotation_number`, `so_date`, `delivery_date`, `status`, `notes`, `total_amount`, `discount_percentage`, `discount_amount`, `final_total`, `created_by`, `created_at`, `updated_at`) VALUES
-(2, 'SO-2025-00001', 6, 'ABC Chemical Suppliers Pvt Ltd', '123 Industrial Area, Chemical Park', '', '+91 9876543210', 3, 'QUO-2025-00001', '2025-09-01', NULL, 'draft', '', 890000.00, 0.00, 0.00, 890000.00, 1, '2025-09-01 06:52:43', '2025-09-01 06:52:43');
+(2, 'SO-2025-00001', 6, 'ABC Chemical Suppliers Pvt Ltd', '123 Industrial Area, Chemical Park', '27ABCCS1234A1Z5', '+91 9876543210', 3, 'QUO-2025-00001', '2025-09-01', NULL, 'draft', '', 890000.00, 0.00, 0.00, 890000.00, 1, '2025-09-01 06:52:43', '2025-09-03 17:45:40'),
+(3, 'SO-2025-00002', 2, 'ABC Pharmaceuticals Ltd', '683 SANJAY ENACLAVE', '', '+91 9876543210', 4, 'QUO-2025-00002', '2025-09-03', NULL, 'draft', '', 890000.00, 0.00, 0.00, 890000.00, 1, '2025-09-03 17:46:39', '2025-09-03 17:46:39');
 
 -- --------------------------------------------------------
 
@@ -1243,7 +1308,8 @@ CREATE TABLE `sales_order_items` (
 --
 
 INSERT INTO `sales_order_items` (`id`, `so_id`, `item_type`, `item_id`, `item_name`, `description`, `hsn_code`, `quantity`, `unit`, `unit_price`, `rate`, `gst_rate`, `amount`, `total_price`, `sl_no`, `created_at`, `updated_at`) VALUES
-(3, 2, 'machine', 3, 'Octagonal Blender - Machine', 'Octagonal Blender - Machine', '', 1, 'Nos', 890000.00, 890000.00, 18.00, 890000.00, 890000.00, 0, '2025-09-01 06:52:43', '2025-09-01 06:52:43');
+(5, 2, 'machine', 3, 'Octagonal Blender - Machine', 'Octagonal Blender - Machine', '', 1, 'Nos', 890000.00, 890000.00, 18.00, 890000.00, 890000.00, 0, '2025-09-03 17:46:28', '2025-09-03 17:46:28'),
+(7, 3, 'machine', 3, 'Octagonal Blender - Machine', 'Octagonal Blender - Machine', '', 1, 'Nos', 890000.00, 890000.00, 18.00, 890000.00, 890000.00, 0, '2025-09-03 17:50:34', '2025-09-03 17:50:34');
 
 -- --------------------------------------------------------
 
@@ -1268,16 +1334,13 @@ CREATE TABLE `spares` (
 --
 
 INSERT INTO `spares` (`id`, `part_name`, `part_code`, `description`, `price`, `machine_id`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'Punch & Die Set - 8mm Round', 'PD-8MM', 'For 8mm round tablets, hardened steel construction', 15000.00, NULL, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(2, 'Filling Disc - Size 0', 'FD-SIZE0', 'For size 0 capsules, stainless steel', 8500.00, NULL, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
+(1, 'Punch &amp;amp;amp;amp;amp; Die Set - 8mm Round', 'PD-8MM', '', 0.00, NULL, 1, '2025-08-28 12:31:21', '2025-09-04 01:31:45'),
 (3, 'Sealing Roller', 'SR-001', 'Heat sealing roller for blister packing', 12000.00, NULL, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (4, 'Impeller Blade Set', 'IB-RMG500', 'Three-blade impeller for RMG-500', 25000.00, 1, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (5, 'Chopper Blade', 'CB-RMG500', 'Four-blade chopper for RMG-500', 18000.00, 1, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (6, 'Filter Bag - PTFE', 'FB-FBD500', 'PTFE filter bag for FBD-500', 22000.00, 2, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
 (7, 'Silicon Moulded Sieve', 'SMS-48', 'For 48 inch vibro sifter, food grade', 18500.00, 4, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(8, 'Stator Rotor Set', 'SRS-CM500', 'Stator rotor assembly for colloid mill', 35000.00, 5, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21'),
-(10, 'CAT KILLER NAME', 'CAT KILLER', '', 0.00, NULL, 1, '2025-08-28 17:06:25', '2025-09-01 06:17:59'),
-(11, 'asddsa', 'ADSDSA', '', 1000.00, NULL, 1, '2025-09-01 06:18:14', '2025-09-01 06:18:14');
+(8, 'Stator Rotor Set', 'SRS-CM500', 'Stator rotor assembly for colloid mill', 35000.00, 5, 1, '2025-08-28 12:31:21', '2025-08-28 12:31:21');
 
 -- --------------------------------------------------------
 
@@ -1304,7 +1367,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `full_name`, `email`, `profile_picture`, `is_admin`, `is_active`, `last_login`, `updated_at`, `password`, `created_at`) VALUES
-(1, 'admin', 'System Administrator', 'admin@pharmamachinery.com', NULL, 1, 1, '2025-09-01 08:27:29', '2025-09-01 08:27:29', '$2y$10$8cY.HsIujamqhApvjl9RwumZGhUdH0BRtAn8KAwPIx/.Bq33dBvBy', '2025-08-28 12:31:21'),
+(1, 'admin', 'System Administrator', 'admin@pharmamachinery.com', NULL, 1, 1, '2025-09-04 01:06:45', '2025-09-04 01:06:45', '$2y$10$8cY.HsIujamqhApvjl9RwumZGhUdH0BRtAn8KAwPIx/.Bq33dBvBy', '2025-08-28 12:31:21'),
 (3, 'manager1', 'ASD', 'manager@pharmamachinery.com', NULL, 0, 1, NULL, '2025-09-01 05:58:16', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2025-08-29 08:31:45'),
 (4, 'operator1', 'Jane Operator', 'operator@pharmamachinery.com', NULL, 0, 1, NULL, '2025-08-29 08:31:45', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2025-08-29 08:31:45'),
 (5, 'viewer1', 'Bob Viewer', 'viewer@pharmamachinery.com', NULL, 0, 1, NULL, '2025-08-29 08:31:45', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2025-08-29 08:31:45');
@@ -1396,6 +1459,27 @@ ALTER TABLE `permissions`
 ALTER TABLE `price_master`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `unique_machine_date_range` (`machine_id`,`valid_from`,`valid_to`);
+
+--
+-- Indexes for table `purchase_invoices`
+--
+ALTER TABLE `purchase_invoices`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `pi_number` (`pi_number`),
+  ADD KEY `idx_vendor_id` (`vendor_id`),
+  ADD KEY `idx_purchase_order_id` (`purchase_order_id`),
+  ADD KEY `idx_pi_date` (`pi_date`),
+  ADD KEY `idx_status` (`status`);
+
+--
+-- Indexes for table `purchase_invoice_items`
+--
+ALTER TABLE `purchase_invoice_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_pi_id` (`pi_id`),
+  ADD KEY `idx_item_type` (`item_type`),
+  ADD KEY `idx_item_id` (`item_id`),
+  ADD KEY `idx_machine_id` (`machine_id`);
 
 --
 -- Indexes for table `purchase_orders`
@@ -1520,13 +1604,13 @@ ALTER TABLE `credit_notes`
 -- AUTO_INCREMENT for table `customers`
 --
 ALTER TABLE `customers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `debit_notes`
 --
 ALTER TABLE `debit_notes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `email_logs`
@@ -1538,13 +1622,13 @@ ALTER TABLE `email_logs`
 -- AUTO_INCREMENT for table `machines`
 --
 ALTER TABLE `machines`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `permissions`
 --
 ALTER TABLE `permissions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=163;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=165;
 
 --
 -- AUTO_INCREMENT for table `price_master`
@@ -1553,16 +1637,28 @@ ALTER TABLE `price_master`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `purchase_invoices`
+--
+ALTER TABLE `purchase_invoices`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `purchase_invoice_items`
+--
+ALTER TABLE `purchase_invoice_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
 -- AUTO_INCREMENT for table `purchase_orders`
 --
 ALTER TABLE `purchase_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `purchase_order_items`
 --
 ALTER TABLE `purchase_order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `quotations`
@@ -1586,31 +1682,31 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT for table `role_permissions`
 --
 ALTER TABLE `role_permissions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=850;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=845;
 
 --
 -- AUTO_INCREMENT for table `sales_invoices`
 --
 ALTER TABLE `sales_invoices`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `sales_invoice_items`
 --
 ALTER TABLE `sales_invoice_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `sales_orders`
 --
 ALTER TABLE `sales_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `sales_order_items`
 --
 ALTER TABLE `sales_order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `spares`
@@ -1645,6 +1741,12 @@ ALTER TABLE `credit_notes`
 --
 ALTER TABLE `price_master`
   ADD CONSTRAINT `fk_price_master_machine` FOREIGN KEY (`machine_id`) REFERENCES `machines` (`id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `purchase_invoice_items`
+--
+ALTER TABLE `purchase_invoice_items`
+  ADD CONSTRAINT `fk_purchase_invoice_items_pi_id` FOREIGN KEY (`pi_id`) REFERENCES `purchase_invoices` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `purchase_orders`

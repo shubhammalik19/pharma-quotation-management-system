@@ -350,12 +350,15 @@ $(document).ready(function() {
             $("#vendor_name").addClass('is-invalid');
             showNotification('Please enter vendor name', 'error');
             isValid = false;
+        } else {
+            $("#vendor_name").removeClass('is-invalid');
         }
         
-        if (!vendorId) {
-            $("#vendor_name").addClass('is-invalid');
-            showNotification('Please select a valid vendor from the dropdown', 'error');
-            isValid = false;
+        // Only check vendor_id if it's required for autocomplete functionality
+        // Allow manual vendor names for flexibility
+        if (vendorName && !vendorId) {
+            // This is acceptable - user can enter vendor name manually
+            $("#vendor_name").removeClass('is-invalid');
         }
         
         // Amount validation

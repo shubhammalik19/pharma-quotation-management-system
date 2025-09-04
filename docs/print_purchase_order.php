@@ -1,472 +1,319 @@
 <?php
+require_once __DIR__ . '/../common/conn.php';
+require_once __DIR__ . '/../common/functions.php';
+require_once __DIR__ . '/../common/print_common.php';
 
+if (!isset($_GET['pdf'])) {
+    checkLogin();
+}
 
-include '../common/conn.php';
-include '../common/functions.php';
-
-$po_id = intval($_GET['id'] ?? 0);
-
+/* ---------- Inputs ---------- */
+$po_id       = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$is_pdf_mode = isset($_GET['pdf']) && $_GET['pdf'] == '1';
 if ($po_id <= 0) {
+    logDocumentActivity('purchase_orders', "Invalid purchase order ID access attempt");
     die('Invalid purchase order ID');
 }
 
-// Get purchase order details
-$po_sql = "SELECT po.*, c.company_name, c.address, c.gst_no, c.phone, c.email,
-           u.full_name as created_by_name
-           FROM purchase_orders po 
-           LEFT JOIN customers c ON po.vendor_id = c.id 
-           LEFT JOIN users u ON po.created_by = u.id
+logDocumentActivity('purchase_orders', "Accessing purchase order print", $po_id);
+
+/* ---------- Fetch PO + Vendor ---------- */
+$po_sql = "SELECT po.*,
+           c.company_name  AS vendor_name,
+           c.address       AS vendor_address,
+           c.city          AS vendor_city,
+           c.state         AS vendor_state,
+           c.pincode       AS vendor_pincode,
+           c.gst_no        AS vendor_gstin,
+           c.phone         AS vendor_phone,
+           c.email         AS vendor_email,
+           u.full_name     AS created_by_name
+           FROM purchase_orders po
+           LEFT JOIN customers c ON po.vendor_id = c.id
+           LEFT JOIN users     u ON po.created_by = u.id
            WHERE po.id = $po_id";
-
 $po_result = $conn->query($po_sql);
-
 if (!$po_result || $po_result->num_rows === 0) {
+    logDocumentActivity('purchase_orders', "Purchase order not found", $po_id);
     die('Purchase order not found');
 }
-
 $po = $po_result->fetch_assoc();
 
-// Get purchase order items
-$items_sql = "SELECT * FROM purchase_order_items WHERE po_id = $po_id ORDER BY id";
+logDocumentActivity('purchase_orders', "Purchase order print generated successfully", $po_id);
+
+/* ---------- Items ---------- */
+$items_sql = "SELECT *
+              FROM purchase_order_items
+              WHERE po_id = $po_id
+              ORDER BY id";
 $items_result = $conn->query($items_sql);
 
-// Get company and bank details from common functions
-$company = getCompanyDetails();
-$bank = getBankDetails();
+/* ---------- Company + Bank ---------- */
+$company = getCompanyDetails() ?: [];
+$bank    = getBankDetails()    ?: [];
+
+logDocumentActivity('purchase_orders', "Purchase order print generated successfully", $po_id);
+
+/* ---------- Totals (with tax split) ---------- */
+$company_state = strtolower(trim($company['state'] ?? ''));     // e.g. 'Haryana'
+$vendor_state  = strtolower(trim($po['vendor_state'] ?? ''));   // vendor state
+$intra_state   = ($company_state && $vendor_state && $company_state === $vendor_state);
+
+// default rate (fallback); you can also store GST in items table per row
+$default_gst_rate = isset($po['gst_rate']) ? (float)$po['gst_rate'] : 18.0;
+
+$items = [];
+$subtotal = 0.0; $tax_total = 0.0;
+if ($items_result) {
+  while ($it = $items_result->fetch_assoc()) {
+    $qty   = (float)($it['quantity']    ?? 0);
+    $rate  = (float)($it['unit_price']  ?? 0);
+    $gst_r = isset($it['gst_rate']) ? (float)$it['gst_rate'] : $default_gst_rate;   // per item or default
+    $line  = (float)($it['total_price'] ?? ($qty * $rate));
+    $tax   = ($line * $gst_r)/100.0;
+
+    $it['_calc_qty']   = $qty;
+    $it['_calc_rate']  = $rate;
+    $it['_calc_line']  = $line;
+    $it['_calc_gst_r'] = $gst_r;
+    $it['_calc_tax']   = $tax;
+
+    $items[] = $it;
+    $subtotal += $line;
+    $tax_total += $tax;
+  }
+}
+
+$discount_amount = (float)($po['discount_amount'] ?? 0.0);
+$pretax_total    = $subtotal;
+$grand_before_disc = $pretax_total + $tax_total;
+$grand_total     = max(0, $grand_before_disc - $discount_amount);
+
+// Split tax for intra-state
+$cgst = $sgst = $igst = 0.0;
+if ($intra_state) {
+  $cgst = $tax_total/2.0;
+  $sgst = $tax_total/2.0;
+} else {
+  $igst = $tax_total;
+}
+
+$amount_in_words = numberToWords($grand_total) . ' Rupees Only';
+
+// Hide PHP warnings inside PDF output
+if ($is_pdf_mode) { ini_set('display_errors','0'); error_reporting(E_ALL); }
 ?>
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Purchase Order - <?php echo htmlspecialchars($po['po_number']); ?></title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Arial', sans-serif;
-            font-size: 12px;
-            line-height: 1.4;
-            color: #333;
-            background: #fff;
-        }
-        
-        .print-container {
-            max-width: 210mm;
-            margin: 0 auto;
-            padding: 20px;
-            background: #fff;
-        }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #2c5aa0;
-            padding-bottom: 20px;
-        }
-        
-        .company-info {
-            flex: 1;
-        }
-        
-        .company-name {
-            font-size: 24px;
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 5px;
-        }
-        
-        .company-details {
-            font-size: 11px;
-            color: #666;
-            line-height: 1.5;
-        }
-        
-        .po-title {
-            text-align: right;
-            flex: 0 0 auto;
-        }
-        
-        .po-title h1 {
-            font-size: 28px;
-            color: #2c5aa0;
-            margin-bottom: 5px;
-        }
-        
-        .po-number {
-            font-size: 14px;
-            color: #666;
-        }
-        
-        .po-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
-        }
-        
-        .vendor-info, .po-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 4px solid #2c5aa0;
-        }
-        
-        .section-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #dee2e6;
-            padding-bottom: 5px;
-        }
-        
-        .info-row {
-            display: flex;
-            margin-bottom: 5px;
-        }
-        
-        .info-label {
-            font-weight: bold;
-            width: 100px;
-            color: #555;
-        }
-        
-        .info-value {
-            flex: 1;
-            color: #333;
-        }
-        
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .items-table th {
-            background: #2c5aa0;
-            color: white;
-            padding: 12px 8px;
-            text-align: left;
-            font-weight: bold;
-            border: 1px solid #2c5aa0;
-        }
-        
-        .items-table td {
-            padding: 10px 8px;
-            border: 1px solid #dee2e6;
-            vertical-align: top;
-        }
-        
-        .items-table tbody tr:nth-child(even) {
-            background: #f8f9fa;
-        }
-        
-        .items-table tbody tr:hover {
-            background: #e9ecef;
-        }
-        
-        .text-right {
-            text-align: right;
-        }
-        
-        .text-center {
-            text-align: center;
-        }
-        
-        .totals-section {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 20px;
-        }
-        
-        .totals-table {
-            width: 300px;
-            border-collapse: collapse;
-        }
-        
-        .totals-table td {
-            padding: 8px 12px;
-            border: 1px solid #dee2e6;
-        }
-        
-        .totals-table .total-label {
-            background: #f8f9fa;
-            font-weight: bold;
-            text-align: right;
-            width: 60%;
-        }
-        
-        .totals-table .total-amount {
-            text-align: right;
-            width: 40%;
-        }
-        
-        .grand-total {
-            background: #2c5aa0 !important;
-            color: white !important;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        
-        .notes-section {
-            margin-top: 30px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 5px;
-            border-left: 4px solid #2c5aa0;
-        }
-        
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 2px solid #dee2e6;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-        
-        .signature-section {
-            text-align: center;
-        }
-        
-        .signature-line {
-            border-top: 1px solid #333;
-            margin-top: 60px;
-            padding-top: 5px;
-            font-weight: bold;
-        }
-        
-        .print-info {
-            margin-top: 30px;
-            text-align: center;
-            font-size: 10px;
-            color: #999;
-            border-top: 1px solid #eee;
-            padding-top: 10px;
-        }
-        
-        @media print {
-            .print-container {
-                margin: 0;
-                padding: 0;
-                max-width: none;
-            }
-            
-            .print-info {
-                display: none;
-            }
-            
-            body {
-                font-size: 11px;
-            }
-        }
-        
-        .badge {
-            padding: 4px 8px;
-            border-radius: 3px;
-            font-size: 10px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        
-        .badge-warning { background: #ffc107; color: #212529; }
-        .badge-success { background: #28a745; color: white; }
-        .badge-info { background: #17a2b8; color: white; }
-        .badge-danger { background: #dc3545; color: white; }
-        .badge-secondary { background: #6c757d; color: white; }
-    </style>
+<meta charset="utf-8">
+<title>Purchase Order — <?php echo e($po['po_number']); ?></title>
+<style>
+<?php echo getPrintStyles(); ?>
+.badge{display:inline-block;padding:2px 6px;font-size:11px;border-radius:4px;color:#fff}
+.status-draft{background:#6c757d}.status-pending{background:#ffc107;color:#212529}.status-approved{background:#17a2b8}.status-completed{background:#28a745}.status-cancelled{background:#dc3545}
+</style>
 </head>
 <body>
-    <div class="print-container">
-        <!-- Header -->
-        <div class="header">
-            <div class="company-info">
-                <div class="company-name">XTECHNOCRAT INDIA PRIVATE LIMITED</div>
-                <div class="company-details">
-                    PLOT NO. 9, SECTOR 22, IT PARK, PANCHKULA<br>
-                    Phone: +91 9560239666 | Email: info@xtechnocrat.com<br>
-                    GST: 06AAACX3387L1ZW | State: 06 - Haryana
-                </div>
-            </div>
-            <div class="po-title">
-                <h1>PURCHASE ORDER</h1>
-                <div class="po-number"><?php echo htmlspecialchars($po['po_number']); ?></div>
-            </div>
-        </div>
 
-        <!-- PO and Vendor Details -->
-        <div class="po-details">
-            <div class="vendor-info">
-                <div class="section-title">Vendor Information</div>
-                <div class="info-row">
-                    <span class="info-label">Vendor:</span>
-                    <span class="info-value"><?php echo htmlspecialchars($po['vendor_name']); ?></span>
-                </div>
-                <?php if (!empty($po['address'])): ?>
-                <div class="info-row">
-                    <span class="info-label">Address:</span>
-                    <span class="info-value"><?php echo nl2br(htmlspecialchars($po['address'])); ?></span>
-                </div>
-                <?php endif; ?>
-                <?php if (!empty($po['gst_no'])): ?>
-                <div class="info-row">
-                    <span class="info-label">GSTIN:</span>
-                    <span class="info-value"><?php echo htmlspecialchars($po['gst_no']); ?></span>
-                </div>
-                <?php endif; ?>
-                <?php if (!empty($po['phone'])): ?>
-                <div class="info-row">
-                    <span class="info-label">Contact:</span>
-                    <span class="info-value"><?php echo htmlspecialchars($po['phone']); ?></span>
-                </div>
-                <?php endif; ?>
-            </div>
+<?php if(!$is_pdf_mode): ?>
+  <?php echo getPrintNavigation('../purchase/purchase_orders.php', $po_id); ?>
+<?php endif; ?>
 
-            <div class="po-info">
-                <div class="section-title">Purchase Order Details</div>
-                <div class="info-row">
-                    <span class="info-label">PO Date:</span>
-                    <span class="info-value"><?php echo date('d-m-Y', strtotime($po['po_date'])); ?></span>
-                </div>
-                <?php if (!empty($po['due_date'])): ?>
-                <div class="info-row">
-                    <span class="info-label">Due Date:</span>
-                    <span class="info-value"><?php echo date('d-m-Y', strtotime($po['due_date'])); ?></span>
-                </div>
-                <?php endif; ?>
-                <?php if (!empty($po['sales_order_number'])): ?>
-                <div class="info-row">
-                    <span class="info-label">Sales Order:</span>
-                    <span class="info-value"><?php echo htmlspecialchars($po['sales_order_number']); ?></span>
-                </div>
-                <?php endif; ?>
-                <div class="info-row">
-                    <span class="info-label">Status:</span>
-                    <span class="info-value">
-                        <span class="badge badge-<?php 
-                            echo match($po['status']) {
-                                'draft' => 'secondary',
-                                'pending' => 'warning',
-                                'approved' => 'info',
-                                'completed' => 'success',
-                                'cancelled' => 'danger',
-                                default => 'secondary'
-                            };
-                        ?>">
-                            <?php echo ucfirst(htmlspecialchars($po['status'])); ?>
-                        </span>
-                    </span>
-                </div>
-                <?php if (!empty($po['created_by_name'])): ?>
-                <div class="info-row">
-                    <span class="info-label">Created By:</span>
-                    <span class="info-value"><?php echo htmlspecialchars($po['created_by_name']); ?></span>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
+<div class="wrapper">
 
-        <!-- Items Table -->
-        <?php if ($items_result && $items_result->num_rows > 0): ?>
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th style="width: 5%">Sl#</th>
-                    <th style="width: 25%">Item Name</th>
-                    <th style="width: 20%">Description</th>
-                    <th style="width: 8%">HSN</th>
-                    <th style="width: 8%">Qty</th>
-                    <th style="width: 8%">Unit</th>
-                    <th style="width: 10%">Rate</th>
-                    <th style="width: 8%">GST%</th>
-                    <th style="width: 12%">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php 
-                $subtotal = 0;
-                $sl_no = 1;
-                while ($item = $items_result->fetch_assoc()): 
-                    $subtotal += $item['total_price'];
-                ?>
-                <tr>
-                    <td class="text-center"><?php echo $sl_no++; ?></td>
-                    <td><?php echo htmlspecialchars($item['item_name']); ?></td>
-                    <td><?php echo htmlspecialchars($item['description'] ?? ''); ?></td>
-                    <td class="text-center">-</td>
-                    <td class="text-center"><?php echo number_format($item['quantity']); ?></td>
-                    <td class="text-center">Nos</td>
-                    <td class="text-right">₹<?php echo number_format($item['unit_price'], 2); ?></td>
-                    <td class="text-center">18%</td>
-                    <td class="text-right">₹<?php echo number_format($item['total_price'], 2); ?></td>
-                </tr>
-                <?php endwhile; ?>
-            </tbody>
+  <?php echo getPrintHeader($company, 'PURCHASE ORDER', $po['po_number'], $po['status']); ?>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Purchase Order — <?php echo e($po['po_number']); ?></title>
+<style>
+body{font:13px/1.45 "DejaVu Sans", Arial, sans-serif;color:#222;margin:0}
+.wrapper{max-width:800px;margin:0 auto;padding:10mm}
+h1{font-size:20px;margin:0 0 3mm}
+h2{font-size:15px;margin:6mm 0 3mm;color:#2c5aa0}
+small{color:#666}
+table{width:100%;border-collapse:collapse}
+td,th{padding:6px 6px;vertical-align:top}
+.hr{height:1px;background:#ddd;margin:5mm 0}
+.box{border:1px solid #ccc}
+.kv td{border:1px solid #ddd}
+.kv td:first-child{background:#f8f8f8;width:140px;font-weight:bold}
+.items thead th{border-bottom:2px solid #2c5aa0;background:#e9f0ff;font-size:12px;text-align:left}
+.items td{border-bottom:1px solid #e7e7e7}
+.num{text-align:right;white-space:nowrap}
+.badge{display:inline-block;padding:2px 6px;font-size:11px;border-radius:4px;color:#fff}
+.status-draft{background:#6c757d}.status-pending{background:#ffc107;color:#212529}.status-approved{background:#17a2b8}.status-completed{background:#28a745}.status-cancelled{background:#dc3545}
+.footer{font-size:12px;border-top:1px solid #444;margin-top:6mm;padding-top:2mm}
+.note{font-size:12px;color:#555}
+@page { size:A4; margin:12mm }
+thead { display: table-header-group; }
+tfoot { display: table-row-group; }
+tr { page-break-inside: avoid; }
+@media print { .no-print { display:none !important; } .wrapper{max-width:100%;padding:0} }
+</style>
+</head>
+<body>
+
+<?php if(!$is_pdf_mode): ?>
+  <div class="no-print" style="position:fixed;top:16px;right:16px;display:flex;gap:8px;z-index:1000">
+    <a href="../purchase/purchase_orders.php" style="background:#6c757d;color:#fff;text-decoration:none;padding:8px 12px;border-radius:6px">← Back</a>
+    <a href="?id=<?php echo $po_id; ?>&pdf=1" target="_blank" style="background:#2c5aa0;color:#fff;text-decoration:none;padding:8px 12px;border-radius:6px">Open PDF</a>
+    <button onclick="window.print()" style="background:#0f766e;color:#fff;border:0;padding:8px 12px;border-radius:6px;cursor:pointer">🖨️ Print</button>
+  </div>
+<?php endif; ?>
+
+
+  <!-- Header (table-only) -->
+
+  <!-- Vendor & PO Details (2 columns, tables) -->
+  <table style="margin-top:6mm">
+    <tr>
+      <td width="50%" valign="top">
+        <h2>Vendor Information</h2>
+        <table class="kv">
+          <tr><td>Vendor</td><td><?php echo e($po['vendor_name'] ?? ''); ?></td></tr>
+          <?php
+            $vaddr_parts=[];
+            if (!empty($po['vendor_address'])) $vaddr_parts[]=$po['vendor_address'];
+            $city_state = trim(($po['vendor_city'] ?? '').((!empty($po['vendor_city']) && !empty($po['vendor_state']))?', ':'').($po['vendor_state'] ?? ''));
+            if ($city_state) $vaddr_parts[]=$city_state;
+            if (!empty($po['vendor_pincode'])) $vaddr_parts[]=$po['vendor_pincode'];
+            $vaddr_str = implode(', ', array_filter($vaddr_parts));
+          ?>
+          <?php if ($vaddr_str): ?><tr><td>Address</td><td><?php echo nl2br(e($vaddr_str)); ?></td></tr><?php endif; ?>
+          <?php if (!empty($po['vendor_gstin'])): ?><tr><td>GSTIN</td><td><?php echo e($po['vendor_gstin']); ?></td></tr><?php endif; ?>
+          <?php if (!empty($po['vendor_phone'])): ?><tr><td>Phone</td><td><?php echo e($po['vendor_phone']); ?></td></tr><?php endif; ?>
+          <?php if (!empty($po['vendor_email'])): ?><tr><td>Email</td><td><?php echo e($po['vendor_email']); ?></td></tr><?php endif; ?>
         </table>
+      </td>
+      <td width="50%" valign="top">
+        <h2>Order Details</h2>
+        <table class="kv">
+          <tr><td>PO Date</td><td><?php echo !empty($po['po_date']) ? date('d.m.Y', strtotime($po['po_date'])) : ''; ?></td></tr>
+          <?php if (!empty($po['due_date'])): ?><tr><td>Due Date</td><td><?php echo date('d.m.Y', strtotime($po['due_date'])); ?></td></tr><?php endif; ?>
+          <?php if (!empty($po['sales_order_number'])): ?><tr><td>Sales Order</td><td><?php echo e($po['sales_order_number']); ?></td></tr><?php endif; ?>
+          <tr><td>Status</td>
+              <td>
+                <?php
+                  $status = strtolower((string)($po['status'] ?? 'draft'));
+                  $badge  = ['draft'=>'status-draft','pending'=>'status-pending','approved'=>'status-approved','completed'=>'status-completed','cancelled'=>'status-cancelled'][$status] ?? 'status-draft';
+                ?>
+                <span class="badge <?php echo $badge; ?>"><?php echo ucfirst(e($status)); ?></span>
+              </td>
+          </tr>
+          <?php if (!empty($po['created_by_name'])): ?><tr><td>Created By</td><td><?php echo e($po['created_by_name']); ?></td></tr><?php endif; ?>
+        </table>
+      </td>
+    </tr>
+  </table>
 
-        <!-- Totals -->
-        <div class="totals-section">
-            <table class="totals-table">
-                <tr>
-                    <td class="total-label">Subtotal:</td>
-                    <td class="total-amount">₹<?php echo number_format($subtotal, 2); ?></td>
-                </tr>
-                <?php if ($po['discount_percentage'] > 0 || $po['discount_amount'] > 0): ?>
-                <tr>
-                    <td class="total-label">
-                        Discount <?php echo $po['discount_percentage'] > 0 ? '(' . $po['discount_percentage'] . '%)' : ''; ?>:
-                    </td>
-                    <td class="total-amount">-₹<?php echo number_format($po['discount_amount'], 2); ?></td>
-                </tr>
-                <?php endif; ?>
-                <tr class="grand-total">
-                    <td class="total-label">Total Amount:</td>
-                    <td class="total-amount">₹<?php echo number_format($po['final_total'], 2); ?></td>
-                </tr>
-            </table>
-        </div>
-        <?php else: ?>
-        <div style="text-align: center; padding: 40px; color: #666;">
-            <i>No items found for this purchase order.</i>
-        </div>
-        <?php endif; ?>
+  <!-- Items -->
+  <h2>Items</h2>
+  <table class="items" aria-label="Purchase Order Items">
+    <thead>
+      <tr>
+        <th width="36">#</th>
+        <th>Description</th>
+        <th width="70">HSN</th>
+        <th width="70" class="num">Qty</th>
+        <th width="70">Unit</th>
+        <th width="100" class="num">Rate</th>
+        <th width="70"  class="num">GST%</th>
+        <th width="110" class="num">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php
+      if (count($items) === 0) {
+        echo '<tr><td colspan="8" style="text-align:center;color:#666">No items</td></tr>';
+      } else {
+        $i=1;
+        foreach ($items as $it):
+      ?>
+      <tr>
+        <td><?php echo $i++; ?></td>
+        <td>
+          <strong><?php echo e($it['item_name'] ?? $it['description'] ?? ''); ?></strong>
+          <?php if (!empty($it['item_code'])): ?><div><small>Code: <?php echo e($it['item_code']); ?></small></div><?php endif; ?>
+          <?php if (!empty($it['description'])): ?><div><small><?php echo nl2br(e($it['description'])); ?></small></div><?php endif; ?>
+        </td>
+        <td><?php echo e($it['hsn_code'] ?? '-'); ?></td>
+        <td class="num"><?php echo rtrim(rtrim(number_format((float)$it['_calc_qty'],2,'.',''), '0'), '.'); ?></td>
+        <td><?php echo e($it['unit'] ?? 'Nos'); ?></td>
+        <td class="num"><?php echo fmt_money($it['_calc_rate']); ?></td>
+        <td class="num"><?php echo rtrim(rtrim(number_format((float)$it['_calc_gst_r'],2,'.',''), '0'), '.'); ?></td>
+        <td class="num"><?php echo fmt_money($it['_calc_line']); ?></td>
+      </tr>
+      <?php endforeach; } ?>
+    </tbody>
+  </table>
 
-        <!-- Notes -->
-        <?php if (!empty($po['notes'])): ?>
-        <div class="notes-section">
-            <div class="section-title">Notes</div>
-            <p><?php echo nl2br(htmlspecialchars($po['notes'])); ?></p>
-        </div>
-        <?php endif; ?>
+  <!-- Totals -->
+  <table style="margin-top:6mm">
+    <tr>
+      <td></td>
+      <td width="320" valign="top">
+        <table class="kv">
+          <tr><td>Sub Total</td><td class="num"><?php echo fmt_money($subtotal); ?></td></tr>
+          <?php if ($intra_state): ?>
+            <tr><td>CGST</td><td class="num"><?php echo fmt_money($cgst); ?></td></tr>
+            <tr><td>SGST</td><td class="num"><?php echo fmt_money($sgst); ?></td></tr>
+          <?php else: ?>
+            <tr><td>IGST</td><td class="num"><?php echo fmt_money($igst); ?></td></tr>
+          <?php endif; ?>
+          <?php if ($discount_amount > 0): ?>
+            <tr><td>Discount</td><td class="num">- <?php echo fmt_money($discount_amount); ?></td></tr>
+          <?php endif; ?>
+          <tr><td><b>Total</b></td><td class="num"><b><?php echo fmt_money($grand_total); ?></b></td></tr>
+        </table>
+        <div class="note" style="margin-top:3mm"><b>Amount in words:</b> <?php echo e($amount_in_words); ?></div>
+      </td>
+    </tr>
+  </table>
 
-        <!-- Footer -->
-        <div class="footer">
-            <div class="signature-section">
-                <div class="signature-line">Authorized Signature</div>
-            </div>
-            <div class="signature-section">
-                <div class="signature-line">Vendor Signature</div>
-            </div>
-        </div>
+  <!-- Notes -->
+  <?php if (!empty($po['notes'])): ?>
+    <div class="hr"></div>
+    <h2>Notes</h2>
+    <div class="note"><?php echo nl2br(e($po['notes'])); ?></div>
+  <?php endif; ?>
 
-        <div class="print-info">
-            Generated on <?php echo date('d-m-Y H:i:s'); ?> | Purchase Order #<?php echo htmlspecialchars($po['po_number']); ?>
-        </div>
-    </div>
+  <div class="hr"></div>
 
-    <script>
-        // Auto print when opened
-        window.onload = function() {
-            window.print();
-        };
-    </script>
+  <!-- Terms (optional) -->
+  <h2>Terms & Conditions</h2>
+  <table class="kv">
+    <tr><td>Payment</td><td>As per agreed terms. Payments via RTGS/NEFT.</td></tr>
+    <tr><td>Delivery</td><td>As per schedule in PO. Any variation to be mutually agreed.</td></tr>
+    <?php if (!empty($bank['bank_name'])): ?>
+    <tr><td>Bank</td><td>
+      <?php
+        echo e($bank['bank_name'] ?? '');
+        if (!empty($bank['account_name']))  echo ' · A/c: '.e($bank['account_name']);
+        if (!empty($bank['account_number']))echo ' · No: '.e($bank['account_number']);
+        if (!empty($bank['ifsc']))          echo ' · IFSC: '.e($bank['ifsc']);
+        if (!empty($bank['branch']))        echo ' · Branch: '.e($bank['branch']);
+      ?>
+    </td></tr>
+    <?php endif; ?>
+  </table>
+
+  <!-- Signatures -->
+  <table style="margin-top:12mm">
+    <tr>
+      <td width="50%" align="center" style="padding-top:36px;border-top:1px solid #888;font-weight:bold">
+        For: <?php echo e($company['name'] ?? ''); ?><br><br>Authorised Signatory
+      </td>
+      <td width="50%" align="center" style="padding-top:36px;border-top:1px solid #888;font-weight:bold">
+        Vendor Seal & Signature
+      </td>
+    </tr>
+  </table>
+
+  <?php echo getPrintFooter($company); ?>
+
+</div>
 </body>
 </html>

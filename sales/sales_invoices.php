@@ -1,11 +1,8 @@
 <?php
-
-
 include '../header.php';
 checkLogin();
 include '../menu.php';
 
-$message = '';
 $prefix = "INV-";
 
 $initial_invoice_number = generateInvoiceNumber($conn, $prefix);
@@ -16,7 +13,7 @@ if ($_POST) {
         if ($_POST['action'] === 'create_invoice' && hasPermission('sales_invoices', 'create')) {
             $invoice_number = sanitizeInput($_POST['invoice_number']);
             $customer_id = intval($_POST['customer_id'] ?? 0);
-            $purchase_order_id = intval($_POST['purchase_order_id'] ?? 0);
+            $purchase_order_id = intval($_POST['purchase_order_id'] ?? 0); // Now stores quotation_id
             $invoice_date = sanitizeInput($_POST['invoice_date']);
             $due_date = sanitizeInput($_POST['due_date']);
             $status = sanitizeInput($_POST['status']);
@@ -45,58 +42,71 @@ if ($_POST) {
                     $customer_gstin = $customer_data['gst_no'];
                     $customer_contact = $customer_data['phone'];
                 } else {
-                    $message = showError('Selected customer does not exist or is not valid.');
+                    redirectWithError('Selected customer does not exist or is not valid.');
                 }
             } else {
-                $message = showError('Please select a valid customer.');
+                redirectWithError('Please select a valid customer.');
             }
+
+            // Start transaction
+            $conn->begin_transaction();
             
-            if (empty($message)) {
+            try {
                 $sql = "INSERT INTO sales_invoices (invoice_number, customer_id, customer_name, customer_address, customer_gstin, customer_contact, purchase_order_id, invoice_date, due_date, subtotal, discount_percentage, discount_amount, tax_percentage, tax_amount, total_amount, final_total, status, notes, created_by) 
                         VALUES ('$invoice_number', $customer_id, '$customer_name', '$customer_address', '$customer_gstin', '$customer_contact', " . ($purchase_order_id ?: 'NULL') . ", '$invoice_date', '$due_date', $subtotal, $discount_percentage, $discount_amount, $tax_percentage, $tax_amount, $total_amount, $final_total, '$status', '$notes', {$_SESSION['user_id']})";
                 
-                if ($conn->query($sql)) {
-                    $invoice_id = $conn->insert_id;
-                    // Handle Invoice items
-                    if (isset($_POST['items']) && is_array($_POST['items'])) {
-                        foreach ($_POST['items'] as $item) {
-                            $item_type = sanitizeInput($item['type']);
-                            $item_id = intval($item['item_id']);
-                            $item_name = sanitizeInput($item['name']);
-                            $description = sanitizeInput($item['description']);
-                            $hsn_string = sanitizeInput($item['description']);
-                            $quantity = intval($item['quantity']);
-                            $unit = 'Nos'; // Default unit, can be made dynamic
-                            $unit_price = floatval($item['unit_price']);
-                            $gst_rate = floatval($item['gst_rate'] ?? 18); // Default GST rate
-                            $total_price = floatval($item['total_price']);
-                            
-                            // Extract HSN from "HSN: xxx"
-                            $hsn_code = '';
-                            if (preg_match('/HSN:\s*(\w+)/i', $hsn_string, $matches)) {
-                                $hsn_code = $matches[1];
-                            }
-                            
-                            // Handle empty HSN code
-                            $hsn_value = empty($hsn_code) ? 'NULL' : "'$hsn_code'";
+                if (!$conn->query($sql)) {
+                    throw new Exception('Error creating sales invoice: ' . $conn->error);
+                }
+                
+                $invoice_id = $conn->insert_id;
+                
+                // Handle Invoice items
+                if (isset($_POST['items']) && is_array($_POST['items'])) {
+                    foreach ($_POST['items'] as $item) {
+                        $item_type = sanitizeInput($item['type']);
+                        $item_id = intval($item['item_id']);
+                        $item_name = sanitizeInput($item['name']);
+                        $description = sanitizeInput($item['description']);
+                        $hsn_string = sanitizeInput($item['description']);
+                        $quantity = intval($item['quantity']);
+                        $unit = 'Nos'; // Default unit, can be made dynamic
+                        $unit_price = floatval($item['unit_price']);
+                        $gst_rate = floatval($item['gst_rate'] ?? 18); // Default GST rate
+                        $total_price = floatval($item['total_price']);
+                        
+                        // Extract HSN from "HSN: xxx"
+                        $hsn_code = '';
+                        if (preg_match('/HSN:\s*(\w+)/i', $hsn_string, $matches)) {
+                            $hsn_code = $matches[1];
+                        }
+                        
+                        // Handle empty HSN code
+                        $hsn_value = empty($hsn_code) ? 'NULL' : "'$hsn_code'";
 
-                            $item_sql = "INSERT INTO sales_invoice_items (invoice_id, item_type, item_id, item_name, description, hsn_code, quantity, unit, unit_price, gst_rate, total_price) 
-                                         VALUES ($invoice_id, '$item_type', $item_id, '$item_name', '$description', $hsn_value, '$unit', $unit_price, $gst_rate, $total_price)";
-                            if (!$conn->query($item_sql)) {
-                                $message .= showError("Error saving item: " . $conn->error);
-                            }
+                        $item_sql = "INSERT INTO sales_invoice_items (invoice_id, item_type, item_id, item_name, description, hsn_code, quantity, unit, unit_price, gst_rate, total_price) 
+                                     VALUES ($invoice_id, '$item_type', $item_id, '$item_name', '$description', $hsn_value, $quantity, '$unit', $unit_price, $gst_rate, $total_price)";
+                        
+                        if (!$conn->query($item_sql)) {
+                            throw new Exception("Error saving item: " . $conn->error);
                         }
                     }
-                    $message = showSuccess('Sales Invoice created successfully!');
-                } else {
-                    $message = showError('Error creating sales invoice: ' . $conn->error);
                 }
+                
+                // Commit transaction
+                $conn->commit();
+                redirectWithSuccess('Sales Invoice created successfully!');
+                
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                redirectWithError($e->getMessage());
             }
         } elseif ($_POST['action'] === 'update_invoice' && hasPermission('sales_invoices', 'edit')) {
             $invoice_id = intval($_POST['id']);
             $invoice_number = sanitizeInput($_POST['invoice_number']);
             $customer_id = intval($_POST['customer_id'] ?? 0);
-            $purchase_order_id = intval($_POST['purchase_order_id'] ?? 0);
+            $purchase_order_id = intval($_POST['purchase_order_id'] ?? 0); // Now stores quotation_id
             $invoice_date = sanitizeInput($_POST['invoice_date']);
             $due_date = sanitizeInput($_POST['due_date']);
             $notes = sanitizeInput($_POST['notes']);
@@ -123,13 +133,16 @@ if ($_POST) {
                     $customer_gstin = $customer_data['gst_no'];
                     $customer_contact = $customer_data['phone'];
                 } else {
-                    $message = showError('Selected customer does not exist or is not valid.');
+                    redirectWithError('Selected customer does not exist or is not valid.');
                 }
             } else {
-                $message = showError('Please select a valid customer.');
+                redirectWithError('Please select a valid customer.');
             }
             
-            if (empty($message)) {
+            // Start transaction
+            $conn->begin_transaction();
+            
+            try {
                 $status = 'sent';
                 $sql = "UPDATE sales_invoices SET 
                         invoice_number = '$invoice_number', 
@@ -152,42 +165,54 @@ if ($_POST) {
                         notes = '$notes' 
                         WHERE id = $invoice_id";
                 
-                if ($conn->query($sql)) {
-                    // Delete existing items and insert new ones
-                    $conn->query("DELETE FROM sales_invoice_items WHERE invoice_id = $invoice_id");
-                    if (isset($_POST['items']) && is_array($_POST['items'])) {
-                        foreach ($_POST['items'] as $item) {
-                            $item_type = sanitizeInput($item['type']);
-                            $item_id = intval($item['item_id']);
-                            $item_name = sanitizeInput($item['name']);
-                            $description = sanitizeInput($item['description']);
-                            $hsn_string = sanitizeInput($item['description']);
-                            $quantity = intval($item['quantity']);
-                            $unit = 'Nos'; // Default unit
-                            $unit_price = floatval($item['unit_price']);
-                            $gst_rate = floatval($item['gst_rate'] ?? 18);
-                            $total_price = floatval($item['total_price']);
-                            
-                            // Extract HSN from "HSN: xxx"
-                            $hsn_code = '';
-                            if (preg_match('/HSN:\s*(\w+)/i', $hsn_string, $matches)) {
-                                $hsn_code = $matches[1];
-                            }
-                            
-                            // Handle empty HSN code
-                            $hsn_value = empty($hsn_code) ? 'NULL' : "'$hsn_code'";
+                if (!$conn->query($sql)) {
+                    throw new Exception('Error updating sales invoice: ' . $conn->error);
+                }
+                
+                // Delete existing items and insert new ones
+                if (!$conn->query("DELETE FROM sales_invoice_items WHERE invoice_id = $invoice_id")) {
+                    throw new Exception('Error deleting existing items: ' . $conn->error);
+                }
+                
+                if (isset($_POST['items']) && is_array($_POST['items'])) {
+                    foreach ($_POST['items'] as $item) {
+                        $item_type = sanitizeInput($item['type']);
+                        $item_id = intval($item['item_id']);
+                        $item_name = sanitizeInput($item['name']);
+                        $description = sanitizeInput($item['description']);
+                        $hsn_string = sanitizeInput($item['description']);
+                        $quantity = intval($item['quantity']);
+                        $unit = 'Nos'; // Default unit
+                        $unit_price = floatval($item['unit_price']);
+                        $gst_rate = floatval($item['gst_rate'] ?? 18);
+                        $total_price = floatval($item['total_price']);
+                        
+                        // Extract HSN from "HSN: xxx"
+                        $hsn_code = '';
+                        if (preg_match('/HSN:\s*(\w+)/i', $hsn_string, $matches)) {
+                            $hsn_code = $matches[1];
+                        }
+                        
+                        // Handle empty HSN code
+                        $hsn_value = empty($hsn_code) ? 'NULL' : "'$hsn_code'";
 
-                            $item_sql = "INSERT INTO sales_invoice_items (invoice_id, item_type, item_id, item_name, description, hsn_code, quantity, unit, unit_price, gst_rate, total_price) 
-                                         VALUES ($invoice_id, '$item_type', $item_id, '$item_name', '$description', $hsn_value, '$unit', $unit_price, $gst_rate, $total_price)";
-                            if (!$conn->query($item_sql)) {
-                                $message .= showError("Error saving item: " . $conn->error);
-                            }
+                        $item_sql = "INSERT INTO sales_invoice_items (invoice_id, item_type, item_id, item_name, description, hsn_code, quantity, unit, unit_price, gst_rate, total_price) 
+                                     VALUES ($invoice_id, '$item_type', $item_id, '$item_name', '$description', $hsn_value, $quantity, '$unit', $unit_price, $gst_rate, $total_price)";
+                        
+                        if (!$conn->query($item_sql)) {
+                            throw new Exception("Error saving item: " . $conn->error);
                         }
                     }
-                    $message = showSuccess('Sales Invoice updated successfully!');
-                } else {
-                    $message = showError('Error updating sales invoice: ' . $conn->error);
                 }
+                
+                // Commit transaction
+                $conn->commit();
+                redirectWithSuccess('Sales Invoice updated successfully!');
+                
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $conn->rollback();
+                redirectWithError($e->getMessage());
             }
         }
     }
@@ -196,15 +221,33 @@ if ($_POST) {
 // Handle delete
 if (isset($_GET['delete'])) {
     if (!hasPermission('sales_invoices', 'delete')) {
-        $message = showError("You don't have permission to delete sales invoices!");
+        redirectWithError("You don't have permission to delete sales invoices!");
     } else {
         $id = (int)$_GET['delete'];
-        $conn->query("DELETE FROM sales_invoice_items WHERE invoice_id = $id");
-        $sql = "DELETE FROM sales_invoices WHERE id = $id";
-        if ($conn->query($sql)) {
-            $message = showSuccess("Sales Invoice deleted successfully!");
-        } else {
-            $message = showError("Error deleting sales invoice: " . $conn->error);
+        
+        // Start transaction
+        $conn->begin_transaction();
+        
+        try {
+            // Delete invoice items first
+            if (!$conn->query("DELETE FROM sales_invoice_items WHERE invoice_id = $id")) {
+                throw new Exception("Error deleting sales invoice items: " . $conn->error);
+            }
+            
+            // Delete the main invoice
+            $sql = "DELETE FROM sales_invoices WHERE id = $id";
+            if (!$conn->query($sql)) {
+                throw new Exception("Error deleting sales invoice: " . $conn->error);
+            }
+            
+            // Commit transaction
+            $conn->commit();
+            redirectWithSuccess("Sales Invoice deleted successfully!");
+            
+        } catch (Exception $e) {
+            // Rollback transaction on error
+            $conn->rollback();
+            redirectWithError($e->getMessage());
         }
     }
 }
@@ -250,7 +293,7 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
         </div>
     </div>
     
-    <?php echo $message; ?>
+    <?php echo getAllMessages(); ?>
     
     <!-- Search Box -->
     <div class="row mb-4">
@@ -309,11 +352,11 @@ $spares = $conn->query("SELECT id, part_name, part_code, price FROM spares WHERE
                         </div>
 
                         <div class="mb-3">
-                            <label for="purchase_order_number" class="form-label">Purchase Order No.</label>
+                            <label for="purchase_order_number" class="form-label">Quotation Number *</label>
                             <input type="text" class="form-control" id="purchase_order_number" name="purchase_order_number"
-                                autocomplete="off" placeholder="Type to search purchase order...">
+                                autocomplete="off" placeholder="Type to search quotation..." required>
                             <input type="hidden" id="purchase_order_id" name="purchase_order_id">
-                            <small class="text-muted">Pick an existing purchase order to preload items & values.</small>
+                            <small class="text-muted">Pick an existing quotation to preload items & values.</small>
                         </div>
                         
                         <div class="row">
